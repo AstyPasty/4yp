@@ -1,0 +1,8 @@
+paper/*.aux.aux
+paper/*.aux.bbl
+paper/*.aux.bcf
+paper/*.aux.blg
+paper/*.aux.fdb_latexmk
+paper/*.aux.log
+paper/*.aux.fls
+paper/*.aux.out

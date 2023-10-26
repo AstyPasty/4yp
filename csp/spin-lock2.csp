@@ -1,0 +1,123 @@
+-- A lock based upon the test-and-set operation with fixed-time backoff.
+--  * Based on Herlihy & Shavit, Section 7.4. 
+--  * @param delay the time in nanoseconds to delay when conflict detected.
+
+
+datatype Variable = State
+datatype ThreadID = T0 --| T1 --| T2
+
+
+channel atomic: Variable
+channel delay: ThreadID
+channel tryLock: ThreadID
+channel lock : ThreadID
+channel getAndSet: Variable.Bool
+channel get: Variable.Bool
+channel set: Variable.Bool
+channel enteringLock: ThreadID
+channel exitingLock: ThreadID
+channel exitedLock: ThreadID
+
+
+Atomic :: Proc
+Atomic = atomic?v -> atomic!v -> Atomic
+
+
+
+Spin :: (Int) -> Proc
+Spin(n) = (n < 200) & delay?(t) -> Spin(n)
+       [] (n >= 200) & STOP
+
+BoolVar :: (Variable, Bool) -> Proc
+--BoolVar(me, v) = atomic!State -> getAndSet?t!me?value -> getAndSet!t!me!v -> atomic?State -> BoolVar(me, value)
+--            []   atomic!State -> get?t!me?_ -> get!t!me!v -> atomic?State -> BoolVar(me, v)
+--            []   atomic!State -> set?t!me?value -> set!t.me.value -> atomic?State -> BoolVar(me, value)
+BoolVar(me, v) = getAndSet!me?b -> get!me!b -> BoolVar(me, b)
+            []   get!me.v ->  BoolVar(me, v)
+            []   set!me?b -> BoolVar(me, b)
+
+
+Lock :: (ThreadID) -> Proc
+Lock(t) =  get!State?c -> if c == True then Lock(t) -- while(state.get()){ }
+           else getAndSet!State.True -> get.State?v -> if v == False then Holding(t) -- if(! state.getAndSet(true)) done = true
+           else delay!t -> Lock(t)
+
+Unlock :: (ThreadID) -> Proc
+Unlock(t) = exitingLock!t -> set.State!False -> exitedLock!t -> NotHolding(t) -- def unlock = state.set(false)
+
+TryLock :: (ThreadID) -> Proc
+TryLock(t) = get!State?s -> if s == True then NotHolding(t) else getAndSet!State.True -> get.State?v -> if v == True then NotHolding(t) else Holding(t)  --!state.get && !state.getAndSet(true)
+
+Holding(t) = enteringLock!t -> Unlock(t)
+
+NotHolding(t) = TryLock(t) |~| Lock(t)--tryLock!t -> TryLock(t) [] lock!t -> Lock(t)
+--NotHolding(t) = tryLock!t -> TryLock(t) [] lock!t -> Lock(t)
+
+AtomicCheck :: (Bool) -> Proc
+AtomicCheck(b) = AtomicThread(b, T0) --[] AtomicThread(T1) [] AtomicThread(T2)
+AtomicThread :: (Bool, ThreadID) -> Proc
+AtomicThread(True, t) = get.State?True  -> AtomicCheck(True)
+                     [] set.State.True -> AtomicCheck(True)
+                     [] set.State.False -> AtomicCheck(False)
+                     [] getAndSet!State.True -> get.State?True -> AtomicCheck(True)
+                     [] getAndSet!State.False -> get.State?True -> AtomicCheck(False)
+                     
+AtomicThread(False, t) = get.State?False -> AtomicCheck(False)
+                     [] set.State.True -> AtomicCheck(True)
+                     [] set.State.False -> AtomicCheck(False)
+                     [] getAndSet!State.True -> get.State?False -> AtomicCheck(True)
+                     [] getAndSet!State.False -> get.State?False -> AtomicCheck(False)
+
+AT(b) = if b == True then( get.State?True  -> AT(True)
+        [] set.State.True -> AT(True)
+        [] set.State.False -> AT(False)
+        [] getAndSet!State.True -> get.State?True -> AT(True)
+        [] getAndSet!State.False -> get.State?True -> AT(False))
+        else (get.State?False -> AT(False)
+        [] set.State.True -> AT(True)
+        [] set.State.False -> AT(False)
+        [] getAndSet!State.True -> get.State?False -> AT(True)
+        [] getAndSet!State.False -> get.State?False -> AT(False))
+
+-- AtomicSystem = RUN(AtomicCheck(0))
+
+Get(False, t) = get.State?False -> Get(False, t) |~| Get(True, t)
+Get(True, t) = get.State?True -> Get(False, t) |~| Get(True, t)
+
+AllThreads = ||| t : ThreadID @ NotHolding(t)
+Components = Spin(0) ||| BoolVar(State, False)
+AllChannels = {|get, set, getAndSet, delay|}
+
+System = (AllThreads ||| Components) --\  {lock, tryLock}
+System2 = (TryLock(T0) ||| Components)
+System3 = (TryLock(T0) [|AllChannels|] Components)
+
+ActualSystem = (NotHolding(T0) [|AllChannels|] Components)
+
+assert ActualSystem :[divergence free]
+assert AT(False) [T= ActualSystem\{|delay|}
+assert ActualSystem [T= AT(False)
+
+
+--AllThreads [|{|get, set, getAndSet, atomic, delay|}|] Components
+assert BoolVar(State, True) [T= set.State!False -> set.State?False -> STOP
+assert BoolVar(State, True) [T= set.State!False -> set.State?True -> STOP
+assert System :[divergence free]
+assert System3 :[divergence free]
+assert System3 [T= get.State.true -> get.State.false -> getAndSet.State.true->getAndSet.State.false->enteringLock.T0->exitingLock.T0->set.State.false->set.State.true->exitedLock.T0 -> get.State.true -> get.State.false -> STOP
+assert System3 [T= get.State.true -> get.State.false -> getAndSet.State.true->getAndSet.State.false->enteringLock.T0->exitingLock.T0->set.State.false->set.State.true->exitedLock.T0 -> get.State.true -> get.State.true -> STOP
+assert System3 [T= get.State.true -> get.State.false -> getAndSet.State.true->getAndSet.State.false->enteringLock.T0->exitingLock.T0->set.State.false->set.State.false->exitedLock.T0 -> get.State.true -> get.State.false -> STOP
+assert Get(False, T0) [T= (System \{|delay, atomic, set, getAndSet|})
+assert  (System \{|delay, atomic, set, getAndSet|}) [T= Get(False, T0)
+assert AtomicCheck(False) [T= System
+assert System [T= AtomicCheck(False)
+assert STOP [T= System
+assert System [T= STOP
+assert AtomicCheck(False) [T= STOP
+assert STOP [T= AtomicCheck(False)
+assert AtomicCheck(False) [T= get!State.True -> get!State?s -> STOP
+assert System [T= get!State.True -> get!State?s -> STOP
+assert System [T= get!State.True -> STOP
+assert TryLock(T0) [T= get!State.True -> get!State?s -> STOP---> getAndSet!T0.State.True -> getAndSet!T0.State?v -> STOP
+
+--TestSystem = [|{|AllThreads, BoolVar(State, False), Atomic(0), Spin|}|]

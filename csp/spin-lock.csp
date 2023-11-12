@@ -7,61 +7,49 @@ datatype Variable = State
 datatype ThreadID = T0 | T1 | T2 | T3 | T4 
 
 
-channel atomic: Variable
 channel delay: ThreadID
-channel tryLock: ThreadID
-channel lock : ThreadID
-channel getAndSet: ThreadID.Variable.Bool
-channel get: ThreadID.Variable.Bool
-channel set: ThreadID.Variable.Bool
-channel enteringLock: ThreadID
-channel exitingLock: ThreadID
-channel exitedLock: ThreadID
-
-
-Atomic :: Proc
-Atomic = atomic?v -> atomic!v -> Atomic
-
-
+channel getAndSet: ThreadID.Variable.Bool.Bool
+channel get: ThreadID.Variable.Bool.Bool
+channel set: ThreadID.Variable.Bool.Bool
 
 
 Spin = delay?t -> Spin
 
 BoolVar :: (Variable, Bool) -> Proc
 
-BoolVar(me, v) = getAndSet?t!me?value -> getAndSet!t!me!v -> BoolVar(me, value)
-            []   get?t!me?_ -> get!t!me!v -> BoolVar(me, v)
-            []   set?t!me?b -> set!t.me!b -> BoolVar(me, b)
+BoolVar(me, v) = getAndSet?t!me!v?value -> BoolVar(me, value)
+            []   get?t!me!v!v -> BoolVar(me, v)
+            []   set?t!me!True?b -> BoolVar(me, b)
 
 
 Lock :: (ThreadID) -> Proc
-Lock(t) =  get!t.State.True -> get!t.State?c -> if c == True then Lock(t) -- while(state.get()){ }
-           else getAndSet!t.State.True -> getAndSet!t.State?v -> if v == False then Holding(t) -- if(! state.getAndSet(true)) done = true
+Lock(t) =  get!t.State?c._ -> if c == True then Lock(t) -- while(state.get()){ }
+           else getAndSet!t.State?v!True -> if v == False then Holding(t) -- if(! state.getAndSet(true)) done = true
            else delay!t -> Lock(t)
 
 Unlock :: (ThreadID) -> Proc
-Unlock(t) = exitingLock!t -> set.t.State!False -> exitedLock!t -> set.t.State?v -> if v == False then NotHolding(t) else DIV-- def unlock = state.set(false)
+Unlock(t) = set.t.State?_!False -> NotHolding(t) -- def unlock = state.set(false)
 
 TryLock :: (ThreadID) -> Proc
-TryLock(t) = get!t.State.True -> get!t.State?s -> if s == True then NotHolding(t) else getAndSet!t.State.True -> getAndSet!t.State?v -> if v == True then NotHolding(t) else Holding(t)  --!state.get && !state.getAndSet(true)
+TryLock(t) = get!t.State?s._ -> if s == True then NotHolding(t) else getAndSet!t.State?v!True -> if v == False then Holding(t) else NotHolding(t)  --!state.get && !state.getAndSet(true)
 
-Holding(t) = enteringLock!t -> Unlock(t)
+Holding(t) = Unlock(t)
 
 NotHolding(t) = TryLock(t) |~| Lock(t)
 
 AtomicCheck :: (Bool) -> Proc
 AtomicCheck(b) = [] t : ThreadID @ AtomicThread(b, t)
 AtomicThread :: (Bool, ThreadID) -> Proc
-AtomicThread(b, t) = if b ==  True then (get!t.State.True -> get!t.State?True -> AtomicCheck(True)
-                     [] set!t.State.True -> set!t.State?True -> AtomicCheck(True)
-                     [] set!t.State.False -> set!t.State?False -> AtomicCheck(False)
-                     [] getAndSet!t.State.True -> getAndSet!t.State?True -> AtomicCheck(True)
-                     [] getAndSet!t.State.False -> getAndSet!t.State?True -> AtomicCheck(False))
-                     else (get!t.State.True -> get!t.State?False -> AtomicCheck(False)
-                     [] set!t.State.True -> set!t.State?True -> AtomicCheck(True)
-                     [] set!t.State.False -> set!t.State?False -> AtomicCheck(False)
-                     [] getAndSet!t.State.True -> getAndSet!t.State?False -> AtomicCheck(True)
-                     [] getAndSet!t.State.False -> getAndSet!t.State?False -> AtomicCheck(False))
+AtomicThread(b, t) = if b ==  True then (get!t.State?True!True -> AtomicCheck(True)
+                     [] set!t.State?_!True -> AtomicCheck(True)
+                     [] set!t.State?_!False -> AtomicCheck(False)
+                     [] getAndSet!t.State?True!True -> AtomicCheck(True)
+                     [] getAndSet!t.State?True!False -> AtomicCheck(False))
+                     else (get!t.State?False!True -> AtomicCheck(False)
+                     [] set!t.State?_!True -> AtomicCheck(True)
+                     [] set!t.State?_!False -> AtomicCheck(False)
+                     [] getAndSet!t.State?False!True -> AtomicCheck(True)
+                     [] getAndSet!t.State?False!False -> AtomicCheck(False))
 
 
 
@@ -75,18 +63,26 @@ ActualSystem = (AllThreads [|AllChannels|] Components)
 -- Obvious
 assert ActualSystem :[divergence free]
 assert ActualSystem :[deadlock free]
--- Check that all operations on state are seemingly atomic
-assert AtomicCheck(False) [T= ActualSystem\{|delay, enteringLock, exitingLock, exitedLock|}
 
-CheckMutualExclusion = enteringLock?t -> exitingLock?t -> exitedLock?t -> CheckMutualExclusion
+
 -- Check that no two threads hold the lock at the same time
-assert CheckMutualExclusion [T= ActualSystem\{|get, set, getAndSet, delay|}
+CheckMutualExclusion = [] t: ThreadID @ getAndSet.t.State.False.True -> set.t.State?_.False -> CheckMutualExclusion
+assert CheckMutualExclusion [T= (ActualSystem\(Union({{|get, delay|}, {getAndSet.t.State.s | t <- ThreadID, s <- {True.True, True.False, False.False}}, {set.t.State.s | t <- ThreadID, s <- {True.True, False.True, False.False}}})))--[[getAndSet.T0.State.False.True <- enteringLock.T0]]) --, set.t.State?_!False <- exitedLock!t]])
 
-CheckNoExtraSpins :: ({ThreadID}) -> Proc
-CheckNoExtraSpins({}) = exitedLock?t -> delay?u -> CheckNoExtraSpins({u})
-CheckNoExtraSpins(xs) = delay?y -> if card(inter(xs, {y})) == 0 then CheckNoExtraSpins(union({y}, xs)) else DIV
+-- Check no divergence before the lock is first held
+CheckNoDiv = [] t: ThreadID @ getAndSet.t.State.False.True -> STOP
+             [] get.t.State?_?_ -> CheckNoDiv
+             [] set.t.State?_?_ -> CheckNoDiv
+             --[] t: ThreadID @ getAndSet.t.State.True.Tr
+assert (ActualSystem [|{|getAndSet, get, set|}|] CheckNoDiv) \ {|getAndSet, set, get|} :[divergence free]
 
-assert CheckNoExtraSpins({})[|{|exitedLock, delay, enteringLock|}|]ActualSystem :[divergence free]
+
+
+--CheckNoExtraSpins :: ({ThreadID}) -> Proc
+--CheckNoExtraSpins({}) = exitedLock?t -> delay?u -> CheckNoExtraSpins({u})
+--CheckNoExtraSpins(xs) = delay?y -> if card(inter(xs, {y})) == 0 then CheckNoExtraSpins(union({y}, xs)) else DIV
+
+--assert CheckNoExtraSpins({})[|{|exitedLock, delay, enteringLock|}|]ActualSystem :[divergence free]
 
 
 -- Force multiple communications to occur sequentially

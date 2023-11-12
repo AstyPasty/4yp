@@ -1,0 +1,225 @@
+-- A lock based upon the test-and-set operation with fixed-time backoff.
+--  * Based on Herlihy & Shavit, Section 7.4. 
+--  * @param delay the time in nanoseconds to delay when conflict detected.
+
+NTHREADSA = 4 
+NTHREADSS = 8
+--NTHREADSLOG = 4
+NLOCKSA = NTHREADSA-1
+NLOCKSS = NTHREADSS - 1
+
+datatype Variable = State.LockID
+datatype LockID = L.(union({0..NLOCKSA-1}, {0..NLOCKSS-1}))
+subtype LockIDA = L.{0..NLOCKSA-1}
+subtype LockIDS = L.{0..NLOCKSS-1}
+datatype ThreadID = T.(union({0..NLOCKSA-1}, {0..NLOCKSS-1})).{1..2}
+subtype ThreadIDA = T.{(NLOCKSA-1)/2..NLOCKSA-1}.{1..2}
+subtype ThreadIDS = T.{(NLOCKSS-1)/2..NLOCKSS-1}.{1..2}
+--datatype TThreadID = T.{NLOCKS/2}{1..2}
+--subtype ChildLocks = L.1 | L.2
+--datatype Tree = B.Tree.Tree | L -- to change
+
+
+channel delay: ThreadID.LockID
+channel getAndSet: ThreadID.Variable.Bool.Bool
+channel get: ThreadID.Variable.Bool
+channel set: ThreadID.Variable.Bool
+channel parent: LockID.LockID
+channel child: LockID.LockID
+channel callLock: ThreadID.LockID
+channel lockObtained: ThreadID.LockID
+channel lockNotObtained: ThreadID.LockID
+channel unlockLock: ThreadID.LockID
+channel notStarved: ThreadID
+--channel lockUnlocked: ThreadID.LockID
+
+InternalChannels = {|get, set, getAndSet, delay|}
+LockEvents = {|callLock, lockObtained, lockNotObtained, unlockLock|}--, lockUnlocked|}
+LockEventsC = {callLock, lockObtained, lockNotObtained, unlockLock}--, lockUnlocked}
+
+TLockParent(t, L.0) = TUnlock(t, L.0)
+TLockParent(t, L.x) = TNotHolding(t, L.((x-1)/2))
+
+TUnlockChild(T.x.y, L.z) = if(z == 0) then TUnlock(T.x.y, L.x) else TNotHolding(T.x.y, L.x)
+                              --   else if (z==1 and NTHREADS > 4) then if ((x < 9 and NTHREADS == 16) or x ==3) then TUnlock(T.x.y, L.3) else if (NTHREADS == 8) then TUnlock(T.x.y, L.4) else TNotHolding(T.x.y, L.x)
+                              --   else if (z==2 and NTHREADS > 4) then if ((x < 13 and NTHREADS == 16) or x == 5) then TUnlock(T.x.y, L.5) else if (NTHREADS == 8) then TUnlock(T.x.y, L.6) else TNotHolding(T.x.y, L.x)
+                              --   else TNotHolding(T.x.y, L.x)
+                              --else if n == 8 then
+
+                        --else if (z==1 and NTHREADS >= 4) then if (x < 9 and NTHREADS == 16 or x ==3) then TUnlock(T.x.y, L.3) else if (NTHREADS == 4) then TUnlock(T.x.y, L.4) else TNotHolding(T.x.y, L.x)
+                        --else if (z==2 and NTHREADS >= 4) then if (x < 13 and NTHREADS == 16 or x == 5) then TUnlock(T.x.y, L.5) else if (NTHREADS == 6) then TUnlock(T.x.y, L.6) else TNotHolding(T.x.y, L.x)
+                        --else if (z < 7 and NTHREADS >= 8) then TUnlock(T.x.y, L.x)
+                        --else TNotHolding(T.x.y, L.x)
+
+--((NLOCKS-1)/2 > y) then Unlock(T.x, L.) 
+
+--if x < 3 then Unlock(T.x, L.1) else Unlock(T.x, L.2)
+
+
+
+Spin = delay?t?l -> Spin
+
+BoolVar :: (Variable, Bool) -> Proc
+
+BoolVar(me, v) = getAndSet?t!me!v?value -> BoolVar(me, value)
+            []   get?t!me!v -> BoolVar(me, v)
+            []   set?t!me?b -> BoolVar(me, b)
+
+
+Lock :: (ThreadID, LockID) -> Proc
+Lock(t, l) = get.t.State.l?c -> if c == True then Lock(t, l) -- while(state.get()){ }
+           else getAndSet.t.State.l?v!True -> if v == False then Holding(t, l) -- if(! state.getAndSet(true)) done = true
+           else delay.t.l -> Lock(t, l)
+
+Unlock :: (ThreadID, LockID) -> Proc
+Unlock(t, l) = unlockLock.t.l -> set.t.State.l!False -> NotHolding(t, l)--lockUnlocked.t.l -> NotHolding(t, l)--UnlockChild(t, l) -- def unlock = state.set(false)
+
+TryLock :: (ThreadID, LockID) -> Proc
+TryLock(t, l) = get.t.State.l?s -> if s == True then NotHolding(t, l) 
+                                   else getAndSet.t.State.l?v!True -> if v == False then Holding(t, l) else lockNotObtained.t.l -> NotHolding(t, l)  --!state.get && !state.getAndSet(true)
+
+Holding(t, l) = lockObtained.t.l -> Unlock(t, l)
+
+NotHolding(t, l) = callLock.t.l -> Lock(t, l)--(TryLock(t, l) |~| Lock(t, l))
+
+TLock :: (ThreadID, LockID) -> Proc
+TLock(t, l) = get.t.State.l?c -> if c == True then TLock(t, l) -- while(state.get()){ }
+           else getAndSet.t.State.l?v!True -> if v == False then THolding(t, l) -- if(! state.getAndSet(true)) done = true
+           else delay.t.l -> TLock(t, l)
+
+TUnlock :: (ThreadID, LockID) -> Proc
+TUnlock(t, l) = unlockLock.t.l -> set.t.State.l!False -> TUnlockChild(t, l) -- def unlock = state.set(false)
+
+TTryLock :: (ThreadID, LockID) -> Proc
+TTryLock(t, l) = get.t.State.l?s -> if s == True then TNotHolding(t, l) 
+                                   else getAndSet.t.State.l?v!True -> if v == False then THolding(t, l) else lockNotObtained.t.l -> TNotHolding(t, l)  --!state.get && !state.getAndSet(true)
+
+THolding(t, l) = lockObtained.t.l -> TLockParent(t, l)
+
+TNotHolding(t, l) = callLock.t.l -> (TTryLock(t, l) |~| TLock(t, l))
+
+SimplifiedLock :: (LockID, {ThreadID}) -> Proc
+SimplifiedLock(l, ts) = callLock?t:(diff(ThreadIDS, ts))!l -> SimplifiedLock(l, union(ts, {t}))
+                      [] lockObtained?t:ts!l -> SimplifiedLockObtained(t, l, ts)
+SimplifiedLockObtained(t, l, ts) = callLock?t2:(diff(ThreadIDS, ts))!l -> SimplifiedLockObtained(t, l, union(ts, {t2}))
+                               [] unlockLock.t.l -> SimplifiedLock(l, diff(ts, {t}))
+
+
+
+
+-- Check that simplified lock and the actual lock have the same traces
+assert (SimplifiedLock(L.0, {}) \ diff(LockEvents, {c.T.NLOCKSS/2.1.L.0 | c<- LockEventsC})) [T= (BoolVar(State.L.0, False) [|InternalChannels|] NotHolding(T.NLOCKSS/2.1, L.0) \ InternalChannels)
+assert (BoolVar(State.L.0, False) [|InternalChannels|] NotHolding(T.NLOCKSS/2.1, L.0) \ InternalChannels) [T= (SimplifiedLock(L.0, {}) \ diff(LockEvents, {c.T.NLOCKSS/2.1.L.0 | c<- LockEventsC}))
+assert SimplifiedLock(L.0, {}) [T= (BoolVar(State.L.0, False) [|InternalChannels|] (||| t : ThreadIDS @ NotHolding(t, L.0)) \ InternalChannels)
+assert (BoolVar(State.L.0, False) [|InternalChannels|] (||| t : ThreadIDS @ NotHolding(t, L.0)) \ InternalChannels) [T= SimplifiedLock(L.0, {})
+
+
+EvenSimplerLock :: (LockID) -> Proc
+EvenSimplerLock(l) = callLock?t!l -> lockObtained?t!l -> unlockLock?t!l -> EvenSimplerLock(l)
+
+SimpleSystemL(t, L.x, ls) = callLock.t.L.x -> lockObtained.t.L.x -> if x == 0 then SimpleSystemU(t, L.0, ls) else SimpleSystemL(t, L.((x-1)/2), <x>^ls)
+SimpleSystemU(T.y.z, L.x, <>) = unlockLock.T.y.z.L.x -> SimpleSystemL(T.y.z, L.x, <>)
+SimpleSystemU(T.y.z, L.x, <l>^ls) = unlockLock.T.y.z.L.x -> SimpleSystemU(T.y.z, L.l, ls)
+--SimpleSystem = ||| (T.x.y) : ThreadID @ SimpleSystemL(T.x.y, (L.(x+1)/2), <>)
+Simple = ||| (T.x.y) : ThreadIDS @ SimpleSystemL(T.x.y, (L.(x+1)/2), <>)
+Locks = ||| l : LockIDS @ EvenSimplerLock(l)
+SimpleSystem = Simple [|LockEvents|] Locks
+
+
+
+-- Checks that root lock is always accessible
+assert SimpleSystem \ diff(LockEvents, {lockObtained.t.L.0 | t <- ThreadIDS}) :[divergence free]
+
+-- Check no divergence (since locks can't be released until thread holds root)
+assert SimpleSystem :[divergence free]
+
+-- Check that no thread is ever starved of the root lock
+SimpleStarvationFreedom(T.x.y) = lockObtained.T?a:{(NLOCKSS-1)/2..NLOCKSS-1}?b!L.0 -> if a == x and b == y and y == 1 then notStarved!T.a.b -> SimpleStarvationFreedom(T.x.2)
+                                                           else if a == x and b == y and x == (NLOCKSS-1) and y == 2 then notStarved!T.a.b -> SimpleStarvationFreedom(T.(NLOCKSS-1)/2.1)
+                                                           else if a == x and b == y then notStarved!T.a.b -> SimpleStarvationFreedom(T.x+1.1) 
+                                                           else SimpleStarvationFreedom(T.x.y)
+assert SimpleStarvationFreedom(T.(NLOCKSS-1)/2.1) [|{lockObtained.t.L.0| t<-ThreadIDS}|] SimpleSystem \ LockEvents :[divergence free]--diff(LockEvents, {lockObtainedt.L.0| t<-ThreadIDS}) :[divergence free]
+
+-- Count no. lock acquisitions per root acquisition
+
+lockAcquisitions(n) = if 0 <= n and n <= NLOCKSS then (unlockLock?t.l -> lockAcquisitions(n-1)
+                      [] lockObtained?t.l -> lockAcquisitions(n+1))
+                      else DIV
+assert lockAcquisitions(0) [|{|lockObtained, unlockLock|}|] SimpleSystem :[divergence free]
+--assert lockAcquisitions(0) [|{|lockObtained, unlockLock|}|] SimpleSystem :[deadlock free]
+
+
+
+
+-- ActualSystem
+AllThreads = ||| (T.x.y) : ThreadIDA @ TNotHolding(T.x.y, (L.x))
+--AllThreads = TNotHolding(T.3.1, L.1) ||| TNotHolding(T.3.2, L.1) ||| TNotHolding(T.4.1, L.2) ||| TNotHolding(T.4.2, L.2) --||| t : ThreadID, NotHolding(t, l)
+Vars = ||| l : LockIDA @ BoolVar(State.l, False)
+Components = Spin ||| Vars
+ActualSystem = (AllThreads [|InternalChannels|] Components)
+
+-- Obvious
+assert  ActualSystem :[divergence free]
+assert ActualSystem :[deadlock free]
+
+CheckLockObtainable = [] t: ThreadIDA, l:LockIDA @ getAndSet.t.State.L.0.False.True -> STOP
+                      [] get.t.State.l.True -> STOP
+--                      [] delay.t.l -> STOP
+                      [] get.t.State.l.False -> CheckLockObtainable
+                      [] set?_ -> CheckLockObtainable
+                      [] getAndSet.t.State.L.0.True?_ -> CheckLockObtainable
+                      [] getAndSet.t.State.L.1?_ -> CheckLockObtainable
+                      [] getAndSet.t.State.L.2?_ -> CheckLockObtainable
+assert (CheckLockObtainable [|{|getAndSet, get, set|}|] ActualSystem) \ union({|getAndSet, get, set|}, LockEvents) :[divergence free]
+
+
+CountFailedTAS(n) =  if n >= NTHREADSA or n < 0 then DIV
+                     else  
+                      [] t: ThreadIDA, l:LockIDA @ getAndSet.t.State.l.True.True -> CountFailedTAS(n+1)
+                      --[] get.t.State.l.True -> STOP
+--                      [] delay.t.l -> STOP
+                      [] get?_ -> CountFailedTAS(n)
+                      --[] get.t.State.l.False -> CountFailedTAS(n)
+                      --[] set.t.State.l.False -> CountFailedTAS(n-1)
+                      [] set.t.State.l.True -> CountFailedTAS(n)
+                      [] getAndSet.t.State.l.False?_ -> CountFailedTAS(n)
+                      [] getAndSet.t.State.l.True.False -> CountFailedTAS(n)
+assert (CountFailedTAS(0) [|{|getAndSet, get, set|}|] ActualSystem)  :[divergence free]
+
+
+--CheckNotUnavailable = [] t: ThreadID @ getAndSet.t.State.L.0.False.True -> set.t.State.L.0.False -> CheckNotUnavailable
+--RootLockChans = {getAndSet.t.State.L.0.False.True, set.t.State.L.0.False | t <- ThreadID}
+--assert (CheckNotUnavailable [|Union({RootLockChans, {|delay|}, {get.t.State.l.True | t<- ThreadID, l <- LockID}, {getAndSet.t.State.l.True.True | t<- ThreadID, l <- LockID}})|] ActualSystem) \diff(InternalChannels,RootLockChans) :[divergence free]
+CheckAlwaysAvailable = lockObtained?t:ThreadIDA!L.0 -> unlockLock.t.L.0 -> CheckAlwaysAvailable
+NoDiv = get?t!State?l!True -> STOP [] getAndSet?t!State?l!True!True -> STOP
+ActualSystemNoDiv = ActualSystem [|union({get.t.State.l.True | t<- ThreadIDA, l <- LockID}, {getAndSet.t.State.l.True.True | t<- ThreadIDA, l <- LockID})|] NoDiv
+assert ActualSystemNoDiv :[divergence free]
+--assert ActualSystemNoDiv
+assert CheckAlwaysAvailable [|Union({{lockObtained.t.L.0 | t <- ThreadIDA}, {unlockLock.t.L.0 | t <- ThreadIDA}, {get.t.State.l.True | t<- ThreadIDA, l <- LockIDA}})|] ActualSystem \ diff(union(InternalChannels, LockEvents), union({lockObtained.t.L.0 | t <- ThreadIDA}, {unlockLock.t.L.0 | t <- ThreadIDA})) :[divergence free]
+-- Synchronise on all items that can be repeated (ie. once lock is owned other thread can't try to access it)
+
+
+-- Check that no two threads hold the lock at the same time
+CheckMutualExclusion = [] t: ThreadIDA @ lockObtained.t.L.0 -> unlockLock.t.L.0 -> CheckMutualExclusion
+assert CheckMutualExclusion [T= (ActualSystem\(union(InternalChannels, diff(LockEvents, {lockObtained.t.L.0, unlockLock.t.L.0 | t <- ThreadIDA}))))
+
+--CheckStarvationFreedom
+
+
+-- Check no divergence before the lock is first held
+CheckNoDiv = [] t: ThreadIDA, l : LockIDA @ getAndSet.t.State.l.False.True -> STOP
+             [] get.t.State.l?_ -> CheckNoDiv
+             [] set.t.State.l?_ -> CheckNoDiv
+             --[] t: ThreadIDA @ getAndSet.t.State.l.True.Tr
+assert (ActualSystem [|{|getAndSet, get, set|}|] CheckNoDiv) \ {|getAndSet, set, get|} :[divergence free]
+
+
+
+--CheckNoExtraSpins :: ({ThreadID}) -> Proc
+--CheckNoExtraSpins({}) = exitedLock?t -> delay?u -> CheckNoExtraSpins({u})
+--CheckNoExtraSpins(xs) = delay?y -> if card(inter(xs, {y})) == 0 then CheckNoExtraSpins(union({y}, xs)) else DIV
+
+--assert CheckNoExtraSpins({})[|{|exitedLock, delay, enteringLock|}|]ActualSystem :[divergence free]
+
+
+-- Force multiple communications to occur sequentially

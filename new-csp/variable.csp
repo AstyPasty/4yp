@@ -1,0 +1,15 @@
+-- Processes representing variables and arrays of variables
+
+Var(value, get, set, gAS) = 
+  get?_!value -> Var(value, get, set, gAS)
+  [] set?_?value' -> Var(value', get, set, gAS)
+  [] gAS?_!value?value' -> Var(value', get, set, gAS) 
+
+
+
+Array(Ind, init, get, set, gAS) = 
+  let Entry(index, value) = 
+        get?_!index.value -> Entry(index, value)
+        [] set?_!index?value' -> Entry(index, value')
+        [] gAS?_!index!value?value' -> Entry(index, value')
+  within ||| index : Ind @ Entry(index, init)

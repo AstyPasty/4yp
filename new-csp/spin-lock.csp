@@ -1,0 +1,73 @@
+-- A lock based upon the test-and-set operation with fixed-time backoff.
+--  * Based on Herlihy & Shavit, Section 7.4. 
+--  * @param delay the time in nanoseconds to delay when conflict detected.
+
+include "variable.csp"
+
+NTHREADS = 5
+
+datatype ThreadID = T.{0..NTHREADS-1}
+
+
+channel delay: ThreadID
+channel callLock: ThreadID
+channel lockObtained: ThreadID
+channel lockNotObtained: ThreadID
+channel lockUnlocked: ThreadID
+
+LockEvents = {|callLock, lockObtained, lockNotObtained, lockUnlocked|}
+LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}--, lockUnlocked}
+
+
+-- state variable
+channel getState, setState : ThreadID . Bool
+channel gASState : ThreadID . Bool . Bool
+State = Var(false, getState, setState, gASState)
+InternalChannels = {|getState, setState, gASState, delay|}
+
+
+Lock :: (ThreadID) -> Proc
+Lock(t) =  getState.t?s -> if s == True then Lock(t) -- while(state.get()){ }
+           else gASState.t?v!True -> if v == False then Holding(t) -- if(! state.getAndSet(true)) done = true
+           else delay!t -> Lock(t)
+
+Unlock :: (ThreadID) -> Proc
+Unlock(t) = setState.t!False -> NotHolding(t) -- def unlock = state.set(false)
+
+TryLock :: (ThreadID) -> Proc
+TryLock(t) = getState.t?s -> if s == True then lockNotObtained.t -> NotHolding(t) else gASState.t?v!True -> if v == False then Holding(t) else lockNotObtained.t -> NotHolding(t)  --!state.get && !state.getAndSet(true)
+
+Holding(t) = Unlock(t)
+
+NotHolding(t) = callLock.t -> Lock(t)--(TryLock(t) |~| Lock(t))
+
+
+AllThreads = ||| t : ThreadID @ NotHolding(t)
+AllChannels = Union({{|delay|}, InternalChannels, LockEvents})
+ActualSystem = (AllThreads [|InternalChannels|] State)
+ActualSystemR = ActualSystem [[gASState.t.False.True <- lockObtained.t, setState.t.False <- lockUnlocked.t | t <- ThreadID]]
+
+-- Obvious
+assert ActualSystem :[divergence free]
+assert ActualSystem :[deadlock free]
+
+
+-- Check that no two threads hold the lock at the same time
+CheckMutualExclusion = gASState?t!False.True -> setState.t.False -> CheckMutualExclusion
+assert CheckMutualExclusion [T= (ActualSystem\(diff(AllChannels, {gASState.t.False.True, setState.t.False | t <- ThreadID})))
+
+-- Check no divergence before the lock is first held
+CheckNoDiv = gASState?t!False.True -> STOP
+             [] getState?t._ -> CheckNoDiv
+assert (ActualSystem [|{|gASState, getState|}|] CheckNoDiv) \ {|getState|} :[divergence free]
+
+
+-- Simplified lock is a trace specification for the lock
+SimplifiedLock :: ({ThreadID}) -> Proc
+SimplifiedLock(ts) = callLock?t:(diff(ThreadID, ts)) -> SimplifiedLock(union(ts, {t}))
+                      [] lockObtained?t:ts -> SimplifiedLockObtained(t,  ts)
+SimplifiedLockObtained(t, ts) = callLock?t2:(diff(ThreadID, ts)) -> SimplifiedLockObtained(t, union(ts, {t2}))
+                               [] lockUnlocked.t -> SimplifiedLock(diff(ts, {t}))
+
+assert SimplifiedLock({}) [T= (ActualSystemR \ InternalChannels)
+assert (ActualSystemR \ InternalChannels) [T= SimplifiedLock({})

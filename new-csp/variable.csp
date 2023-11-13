@@ -9,7 +9,7 @@ Var(value, get, set, gAS) =
 
 Array(Ind, init, get, set, gAS) = 
   let Entry(index, value) = 
-        get?_!index.value -> Entry(index, value)
-        [] set?_!index?value' -> Entry(index, value')
-        [] gAS?_!index!value?value' -> Entry(index, value')
+        get!index?_!value -> Entry(index, value)
+        [] set!index?_?value' -> Entry(index, value')
+        [] gAS!index?_!value?value' -> Entry(index, value')
   within ||| index : Ind @ Entry(index, init)

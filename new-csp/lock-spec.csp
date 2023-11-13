@@ -1,0 +1,13 @@
+channel callLock: LockID.ThreadID
+channel lockObtained: LockID.ThreadID
+channel lockNotObtained: LockID.ThreadID
+channel lockUnlocked: LockID.ThreadID
+
+-- LockSpec is a trace specification for the lock
+LockSpec :: (LockID, {ThreadID}, {ThreadID}) -> Proc
+LockSpec(l, ts, TS) = callLock.l?t:(diff(TS, ts)) -> LockSpec(l, union(ts, {t}), TS)
+                      [] lockObtained.l?t:ts -> LockSpecObtained(t, l, ts, TS)
+LockSpecObtained(t, l, ts, TS) = callLock.l?t2:(diff(TS, union(ts, {t}))) -> LockSpecObtained(t, l, union(ts, {t2}), TS)
+                               [] lockUnlocked.l.t -> LockSpec(l, diff(ts, {t}), TS)
+
+

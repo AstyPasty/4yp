@@ -16,5 +16,44 @@
   {}
 \endgroup
 
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global}
+    \entry{TAoMP}{book}{}
+      \name{author}{2}{}{%
+        {{hash=dec3948f0497f5447bae5c2365b87e8f}{%
+           family={Herlihy},
+           familyi={H\bibinitperiod},
+           given={Maurice},
+           giveni={M\bibinitperiod}}}%
+        {{hash=3e2aee6574e3dcbdbc582166218008cb}{%
+           family={Shavit},
+           familyi={S\bibinitperiod},
+           given={Nir},
+           giveni={N\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {San Francisco, CA, USA}%
+      }
+      \list{publisher}{1}{%
+        {Morgan Kaufmann Publishers Inc.}%
+      }
+      \strng{namehash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \strng{fullhash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \strng{bibnamehash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \strng{authorbibnamehash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \strng{authornamehash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \strng{authorfullhash}{7d85b068d0a7584e6818b95a7c1976f6}
+      \field{sortinit}{H}
+      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{edition}{1st}
+      \field{isbn}{9780123973375}
+      \field{title}{The Art of Multiprocessor Programming, Revised Reprint}
+      \field{year}{2012}
+    \endentry
+  \enddatalist
+\endrefsection
 \endinput
 

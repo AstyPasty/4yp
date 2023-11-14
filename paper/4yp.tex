@@ -11,37 +11,47 @@
 \usepackage{tabularx}
 \usepackage{setspace}
 
+\usepackage[slashRename]{cspm}
+\def\m{$\mathord{\mid}$}
+\def\CSPMMR#1{\mbox{\cspmstyle #1}}
+\def\inlineCSP{\uncspMid\cspMid}
+\lstset{columns=fullflexible}
+%\inlineCSP
+\cspMid
+
+
 \definecolor{dkgreen}{rgb}{0,0.6,0}
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 %\emergencystretch=1em
 
 %\setstretch{2}
+\mathchardef\mhyphen="2D
 
 \usepackage{url}
 \usepackage{hyperref}
 \hypersetup{breaklinks=true}
 \urlstyle{same}
 
-%\lstset{frame=tb,
-%  language=Scala,
-%  aboveskip=3mm,
-%  belowskip=3mm,
-%  showstringspaces=false,
-%  columns=flexible,
-%  basicstyle={\small\ttfamily},
-%  numbers=left,
-%  backgroundcolor=\color{gray!20},
-%  numberstyle=\tiny\color{gray},
-%  keywordstyle=\color{blue},
-%  commentstyle=\color{dkgreen},
-%  stringstyle=\color{mauve},
-%  breaklines=true,
-%  breakatwhitespace=true,
-%  tabsize=3
-%}
+\lstset{frame=tb,
+ language=Scala,
+ aboveskip=3mm,
+ belowskip=3mm,
+ showstringspaces=false,
+ columns=flexible,
+ basicstyle={\small\ttfamily},
+ numbers=left,
+ backgroundcolor=\color{gray!20},
+ numberstyle=\tiny\color{gray},
+ keywordstyle=\color{blue},
+ commentstyle=\color{dkgreen},
+ stringstyle=\color{mauve},
+ breaklines=true,
+ breakatwhitespace=true,
+ tabsize=3
+}
 
-\mathchardef\mhyphen="2D
+
 
 \addbibresource{references.bib}
 
@@ -57,12 +67,15 @@
 
 
 \begin{document}
-%  \maketitle
+  \maketitle
 %  \tableofcontents
 %  \listoffigures
 %  \listoftables
 %  \pagebreak
  Test
+ \input{locks}
+ End of Test
+
   %\begin{enumerate}
   %  \item \textbf{Action on Objectives:} The attacker now begins to achieve their initial objectives making use of the system access they have achieved. These objectives can include anything from data exfiltration to ransomware attacks to damage to physical systems.
   %\end{enumerate}
@@ -92,7 +105,7 @@
   %\end{table}
 
 
-  %\Urlmuskip=0mu plus 1mu
-  %\emergencystretch=1em
-  %\printbibliography{}
+  \Urlmuskip=0mu plus 1mu
+  \emergencystretch=1em
+  \printbibliography{}
 \end{document}

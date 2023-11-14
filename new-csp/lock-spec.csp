@@ -4,14 +4,17 @@ channel lockNotObtained: LockID.ThreadID
 channel lockUnlocked: LockID.ThreadID
 
 LockEvents = {|callLock, lockObtained, lockNotObtained, lockUnlocked|}
-LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}--, lockUnlocked}
+LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}
 
--- LockSpec is a trace specification for the lock
+-- LockSpec is a trace specification for a non-starvation-free lock
 LockSpec :: (LockID, {ThreadID}, {ThreadID}) -> Proc
 LockSpec(l, ts, TS) = callLock.l?t:(diff(TS, ts)) -> LockSpec(l, union(ts, {t}), TS)
                       [] lockObtained.l?t:ts -> LockSpecObtained(t, l, ts, TS)
 LockSpecObtained(t, l, ts, TS) = callLock.l?t2:(diff(TS, union(ts, {t}))) -> LockSpecObtained(t, l, union(ts, {t2}), TS)
                                [] lockUnlocked.l.t -> LockSpec(l, diff(ts, {t}), TS)
 
+-- These are used to check mutual exclusion on any lock implementation
+-- CheckMutualExclusion(l) should trace refine any lock l with only the
+-- OnlyRootObtain(l, ts) events visible
 CheckMutualExclusion(l) = lockObtained.l?t:ThreadID -> lockUnlocked.l.t -> CheckMutualExclusion(l)
 OnlyRootObtain(l, ts) = {lockObtained.l.t, lockUnlocked.l.t | t <- ts}

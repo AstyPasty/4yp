@@ -1,18 +1,22 @@
 -- Processes representing variables and arrays of variables
 
+-- An atomic variable with value value, and get, set and getAndSet operations
 Var(value, get, set, gAS) = 
   get?_!value -> Var(value, get, set, gAS)
   [] set?_?value' -> Var(value', get, set, gAS)
   [] gAS?_!value?value' -> Var(value', get, set, gAS) 
 
+-- An AtomicInteger with the above operations, a getAndIncrement operation
+-- and lower and upper bounds to support the getAndIncrement operation
 IntVar(value, g, s, gAS, gAI, l, u) = 
       g?_!value -> IntVar(value, g, s, gAS, gAI, l, u)
-   [] s?_?value' -> IntVar(value', g, s, gAS, gAI, l, u)
-   [] gAS?_!value?value' -> IntVar(value', g, s, gAS, gAI, l, u) 
+   [] s?_?value':{l..u} -> IntVar(value', g, s, gAS, gAI, l, u)
+   [] gAS?_!value?value':{l..u} -> IntVar(value', g, s, gAS, gAI, l, u) 
    [] gAI?_!value -> if value < u then IntVar(value + 1, g, s, gAS, gAI, l, u) 
                      else IntVar(l, g, s, gAS, gAI, l, u) 
 
-
+-- An array of |Ind| variables as defined in Var all initially set to init
+-- Indexed on values in Ind
 Array(Ind, init, get, set, gAS) = 
   let Entry(index, value) = 
         get!index?_!value -> Entry(index, value)

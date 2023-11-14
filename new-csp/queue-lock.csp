@@ -1,0 +1,124 @@
+-- /** A lock using an array to store waiting threads in a queue.
+--   * Based on Herlihy & Shavit, Section 7.5.1.
+--   * @param capacity the number of workers who can use the lock. */ 
+
+include "variable.csp"
+include "lock-spec.csp"
+
+NTHREADS = 2
+CAPACITY = NTHREADS
+INTBOUND = 4
+
+
+--datatype NVariable = Flags
+--datatype Variable = State | Tail | A.NVariable.BoundedInt--Flags.{0..NTHREADS}
+datatype ThreadID = T.{0..NTHREADS}
+subtype ThreadIDS = T.{1..NTHREADS}
+datatype LockID = L
+nametype BInt = {0..INTBOUND}
+nametype Index = {1..CAPACITY}
+datatype BoundedInt = B.{0..INTBOUND}
+subtype BoundedThreadInt = B.{1..NTHREADS}
+
+
+WAIT = False
+GO = True
+
+channel delay: ThreadID
+channel getAndSet: Index.ThreadID.Bool.Bool
+channel get: Index.ThreadID.Bool
+channel set: Index.ThreadID.Bool
+
+InternalChannels =  {|get, set, getAndSet|}
+
+--channel getAndIncrement: ThreadID.Variable.BInt
+--channel getAndIncrementBound: ThreadID.Variable.BInt
+
+channel tailGet, tailSet, tailGAI : ThreadID.Index
+channel tailGAS : ThreadID.Index.Index
+Tail = IntVar(1, tailGet, tailSet, tailGAS, tailGAI, 1, CAPACITY)
+TailChannels = {|tailGet, tailSet, tailGAS, tailGAI|}
+
+Flags = Array(diff(Index, {1}), WAIT, get, set, getAndSet)
+FlagsInit = Array({1}, GO, get, set, getAndSet) ||| Flags
+--FlagsInit = Flags [|{set.1.T.0.GO}|] set.1.T.0.GO -> STOP
+
+
+Lock :: (ThreadID) -> Proc
+Lock(t) = tailGAI.t?slot -> WaitForLock(t, slot) -- val slot = (tail.getAndIncrement * padding) % size
+
+WaitForLock :: (ThreadID, Int) -> Proc                 
+WaitForLock(t, slot) = get.slot.t?v:Bool -> if v == WAIT then delay!t -> WaitForLock(t, slot) else Unlock(t, slot)-- while(flags.get(slot) == Wait){ } // spin on flag(slot)
+
+Unlock :: (ThreadID, Int) -> Proc
+Unlock(t, slot) =    -- val slot = mySlotIndex.get // slotIndices(ThreadID.get)
+            set.slot.t.WAIT -> -- flags.set(slot, Wait) // anyone waiting here must wait
+            if slot < CAPACITY then set.(slot+1).t.GO -> NotHolding(t)-- flags.set((slot+padding)%size, Go) // next thread can progress
+            else if slot == CAPACITY then set.1.t.GO -> NotHolding(t)
+            else DIV
+
+NotHolding(t) = callLock.L.t -> Lock(t)
+
+
+
+
+AllThreads = ||| t : ThreadIDS @ NotHolding(t)
+AllChannels = {|get, set, getAndSet, tailGAI, tailGet, tailSet, tailGAS|}
+Components = Tail ||| FlagsInit 
+ActualSystemInt = (AllThreads [|AllChannels|] Components)
+ActualSystemLockEvents = ActualSystemInt [[get.s.t.GO <- lockObtained.L.t, set.s.t.GO <- lockUnlocked.L.t | t <- ThreadID, s <- Index]] 
+ActualSystemExtDiv = ActualSystemLockEvents \ union(AllChannels, {|delay|})
+NoDiv = get?s?t!WAIT -> STOP
+ActualSystemNoDiv = (ActualSystemLockEvents [|{get.s.t.WAIT | t <- ThreadID, s <- Index}|] NoDiv) \ union(AllChannels, {|delay|})
+
+-- Obvious
+assert ActualSystemInt :[divergence free]
+assert ActualSystemInt :[deadlock free]
+assert ActualSystemNoDiv :[divergence free]
+assert ActualSystemNoDiv :[deadlock free]
+assert ActualSystemExtDiv [T= ActualSystemNoDiv
+assert ActualSystemNoDiv [T= ActualSystemExtDiv
+
+
+-- Check that no two threads hold the lock at the same time
+assert CheckMutualExclusion(L) [T= ActualSystemNoDiv \ diff(LockEvents, OnlyRootObtain(L, ThreadID))--(ActualSystemInt\(Union({{|getb, delay|}, {getAndSetb.t.State.s | t <- ThreadID, s <- {True.True, True.False, False.False}}, {setb.t.State.s | t <- ThreadID, s <- {True.True, False.True, False.False}}})))--[[getAndSetb.T0.State.False.True <- enteringLock.T0]]) --, set.t.State?_!False <- exitedLock!t]])
+
+-- -- -- Check no divergence before the lock is first held
+-- -- CheckNoDiv = [] t: ThreadID, x : BoundedThreadInt @ getAndIncrementBound.t.Tail.B.1 -> STOP
+-- --              [] getbi.t.A.Flags.x.WAIT -> CheckNoDiv
+-- --              [] setbi.t?_ -> CheckNoDiv
+-- --              [] getAndIncrementBound.t?_ -> CheckNoDiv
+-- --              [] getAndSetbi.t?_ -> CheckNoDiv
+-- -- noDivChannels = {|getbi, setbi, getAndIncrementBound, getAndSetbi|}
+-- -- assert (ActualSystem [|noDivChannels|] CheckNoDiv) \ noDivChannels :[divergence free]
+
+-- -- -- Check that divergence can occur before thread releases lock (ie. whilst lock is held)
+-- -- CheckNoDiv2 = [] t: ThreadID, x : BoundedThreadInt @ setbi.t.A.Flags.x.WAIT -> STOP
+-- --              [] getbi.t.A.Flags.x.WAIT -> CheckNoDiv2
+-- --              [] setbi.t?_ -> CheckNoDiv2
+-- --              [] getAndIncrementBound.t?_ -> CheckNoDiv2
+-- --              [] getAndSetbi.t?_ -> CheckNoDiv2
+-- --              [] delay.t ->  CheckNoDiv2
+-- -- noDivChannels2 = union(noDivChannels, {|delay|})
+-- -- assert (ActualSystem [|noDivChannels2|] CheckNoDiv2) \ noDivChannels2 :[divergence free]
+
+-- -- -- Check that divergence can't occur after lock release and before next obtained
+-- -- CheckNoDivBetween = [] t: ThreadID, x : BoundedThreadInt @ setbi.t.A.Flags.x.WAIT -> CheckNoDiv3
+-- --              [] getbi.t.A.Flags.x.WAIT -> CheckNoDivBetween
+-- --              [] setbi.t?_ -> CheckNoDivBetween
+-- --              [] getAndIncrementBound.t?_ -> CheckNoDivBetween
+-- --              [] getAndSetbi.t?_ -> CheckNoDivBetween
+-- --              [] delay.t ->  CheckNoDivBetween
+
+-- -- CheckNoDiv3 = [] t: ThreadID, x : BoundedThreadInt @ getAndIncrementBound.t.Tail.B.2-> STOP
+-- --              [] getbi.t.A.Flags.x.GO -> STOP
+-- --              [] getbi.t.A.Flags.x.WAIT -> CheckNoDivBetween
+-- --              [] setbi.t?_ -> CheckNoDivBetween
+-- --              [] getAndIncrementBound.t?_ -> CheckNoDivBetween
+-- --              [] getAndSetbi.t?_ -> CheckNoDivBetween
+-- --              [] delay.t ->  CheckNoDivBetween
+
+
+
+
+

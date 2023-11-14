@@ -5,6 +5,12 @@ Var(value, get, set, gAS) =
   [] set?_?value' -> Var(value', get, set, gAS)
   [] gAS?_!value?value' -> Var(value', get, set, gAS) 
 
+IntVar(value, g, s, gAS, gAI, l, u) = 
+      g?_!value -> IntVar(value, g, s, gAS, gAI, l, u)
+   [] s?_?value' -> IntVar(value', g, s, gAS, gAI, l, u)
+   [] gAS?_!value?value' -> IntVar(value', g, s, gAS, gAI, l, u) 
+   [] gAI?_!value -> if value < u then IntVar(value + 1, g, s, gAS, gAI, l, u) 
+                     else IntVar(l, g, s, gAS, gAI, l, u) 
 
 
 Array(Ind, init, get, set, gAS) = 
@@ -13,3 +19,4 @@ Array(Ind, init, get, set, gAS) =
         [] set!index?_?value' -> Entry(index, value')
         [] gAS!index?_!value?value' -> Entry(index, value')
   within ||| index : Ind @ Entry(index, init)
+

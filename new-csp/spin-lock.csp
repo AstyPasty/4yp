@@ -8,12 +8,9 @@ include "lock-spec.csp"
 NTHREADS = 5
 
 datatype ThreadID = T.{0..NTHREADS-1}
-datatype LockID = L
+datatype LockID = L.{0}
 
 channel delay: ThreadID
-
-LockEvents = {|callLock, lockObtained, lockNotObtained, lockUnlocked|}
-LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}--, lockUnlocked}
 
 
 -- state variable
@@ -32,26 +29,26 @@ Unlock :: (ThreadID) -> Proc
 Unlock(t) = setState.t!False -> NotHolding(t) -- def unlock = state.set(false)
 
 TryLock :: (ThreadID) -> Proc
-TryLock(t) = getState.t?s -> if s == True then lockNotObtained.L.t -> NotHolding(t) else gASState.t?v!True -> if v == False then Holding(t) else lockNotObtained.L.t -> NotHolding(t)  --!state.get && !state.getAndSet(true)
+TryLock(t) = getState.  t?s -> if s == True then lockNotObtained.L.0.t -> NotHolding(t) else gASState.t?v!True -> if v == False then Holding(t) else lockNotObtained.L.0.t -> NotHolding(t)  --!state.get && !state.getAndSet(true)
 
 Holding(t) = Unlock(t)
 
-NotHolding(t) = callLock.L.t -> Lock(t)--(TryLock(t) |~| Lock(t))
+NotHolding(t) = callLock.L.0.t -> Lock(t)--(TryLock(t) |~| Lock(t))
 
 
 AllThreads = ||| t : ThreadID @ NotHolding(t)
 AllChannels = Union({{|delay|}, InternalChannels, LockEvents})
 ActualSystem = (AllThreads [|InternalChannels|] State)
-ActualSystemR = ActualSystem [[gASState.t.False.True <- lockObtained.L.t, setState.t.False <- lockUnlocked.L.t | t <- ThreadID]]
+ActualSystemR = ActualSystem [[gASState.t.False.True <- lockObtained.L.0.t, setState.t.False <- lockUnlocked.L.0.t | t <- ThreadID]] \ InternalChannels
 
 -- Obvious
 assert ActualSystem :[divergence free]
+assert ActualSystemR :[divergence free]
 assert ActualSystem :[deadlock free]
 
 
 -- Check that no two threads hold the lock at the same time
-CheckMutualExclusion = gASState?t!False.True -> setState.t.False -> CheckMutualExclusion
-assert CheckMutualExclusion [T= (ActualSystem\(diff(AllChannels, {gASState.t.False.True, setState.t.False | t <- ThreadID})))
+assert CheckMutualExclusion(L.0) [T= ActualSystemR \ diff(LockEvents, OnlyRootObtain(L.0, ThreadID))--(ActualSystem\(diff(AllChannels, {gASState.t.False.True, setState.t.False | t <- ThreadID})))
 
 -- Check no divergence before the lock is first held
 CheckNoDiv = gASState?t!False.True -> STOP
@@ -59,5 +56,5 @@ CheckNoDiv = gASState?t!False.True -> STOP
 assert (ActualSystem [|{|gASState, getState|}|] CheckNoDiv) \ {|getState|} :[divergence free]
 
 
-assert LockSpec(L, {}, ThreadID) [T= (ActualSystemR \ InternalChannels)
-assert (ActualSystemR \ InternalChannels) [T= LockSpec(L, {}, ThreadID)
+assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemR
+assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)

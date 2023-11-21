@@ -12,6 +12,8 @@ datatype LockID = L.{0}
 
 -- Used to count the number of 'failed' getAndSets
 channel delay: ThreadID
+-- Used to indicate a thread has terminated
+channel end: ThreadID
 
 -- state variable
 channel getState, setState : ThreadID . Bool
@@ -22,33 +24,37 @@ InternalChannels = {|getState, setState, gASState, delay|}
 
 Lock :: (ThreadID) -> Proc                              -- def lock = do {
 Lock(t) =  getState.t?s -> if s == True then Lock(t)               --   while(state.get()){ }
-           else gASState.t?v!True -> if v == False then Holding(t) -- } (while(state.getAndSet(true)))
+           else gASState.t?v!True -> if v == False then SKIP -- } (while(state.getAndSet(true)))
            else delay!t -> Lock(t)  -- getAndSet returned false so spin and retry
 
 Unlock :: (ThreadID) -> Proc
-Unlock(t) = setState.t!False -> NotHolding(t) -- def unlock = state.set(false)
+Unlock(t) = setState.t!False -> SKIP -- def unlock = state.set(false)
 
-TryLock :: (ThreadID) -> Proc
-TryLock(t) = getState.t?s ->                            -- def tryLock = !state.get
-              if s == True then lockNotObtained.L.0.t -> NotHolding(t) 
-              else gASState.t?v!True ->                 --               && !state.getAndSet(true)
-                if v == False then Holding(t) 
-                else lockNotObtained.L.0.t -> NotHolding(t)
+-- TODO: Needs updating with SKIPS; some form of returning whether lock held
+-- TryLock :: (ThreadID) -> Proc
+-- TryLock(t) = getState.t?s ->                            -- def tryLock = !state.get
+--               if s == True then lockNotObtained.L.0.t -> NotHolding(t) 
+--               else gASState.t?v!True ->                 --               && !state.getAndSet(true)
+--                 if v == False then Holding(t) 
+--                 else lockNotObtained.L.0.t -> NotHolding(t)
 
 -- Thread t currently holds the lock
-Holding(t) = Unlock(t) 
+--Holding(t) = Unlock(t) 
 
 -- Thread t does not hold the lock
 -- TODO: remove restriction on TryLock(t). This would require modifying any 
 --       divergence free assertions (though currently aren't really used)
 --       Also requires changing the lock spec to allow a thread t to 
 --       callLock.l.t -> lockNotObtained.l.t
-NotHolding(t) = callLock.L.0.t -> Lock(t)--(TryLock(t) |~| Lock(t))
+--NotHolding(t) = callLock.L.0.t -> Lock(t)--(TryLock(t) |~| Lock(t))
+
+Thread(t) = Lock(t); Unlock(t); Thread(t)
+            |~| end.t -> SKIP
 
 
 -- All threads run in parallel with no visibility of each others actions,
 -- All initially do no hold the lock
-AllThreads = ||| t : ThreadID @ NotHolding(t)
+AllThreads = ||| t : ThreadID @ Thread(t)
 -- Allow all threads to peform actions on the state variable
 ActualSystem = (AllThreads [|InternalChannels|] State)
 -- Rename lock acquisition and releasing and hide internal events
@@ -61,9 +67,18 @@ ActualSystemR = (ActualSystem
 -- Should pass as no 'internal' events
 assert ActualSystem :[divergence free]
 -- Expected to fail since a thread can repeat a get.l.t.True
-assert ActualSystemR :[divergence free]
--- Passes
-assert ActualSystem :[deadlock free]
+assert not ActualSystemR :[divergence free]
+-- Passes with all threads immediately terminating
+assert not ActualSystem :[deadlock free]
+
+-- Need to stop all ends occuring before any locking
+threadRegulator(n) = if n > 1 then end?t -> threadRegulator(n-1) 
+                     else STOP
+
+ActualSystemNoTerminate = ActualSystemR [|{|end|}|] 
+                            threadRegulator(card(ThreadID)) 
+assert ActualSystemNoTerminate :[deadlock free]                            
+                  
 
 
 -- Check that no two threads hold the lock at the same time

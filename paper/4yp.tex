@@ -4,13 +4,48 @@
 \usepackage{graphicx}
 \usepackage{biblatex}
 \usepackage[margin=3cm]{geometry}
-\usepackage{listings}
 \usepackage{color}
 \usepackage{xcolor}
 \usepackage{biblatex}
 \usepackage{tabularx}
 \usepackage{setspace}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
 
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usepackage{scalalistings}
+%\unScalaMid  % We need "|" to have standard meaning when cspm.sty is read
+\usepackage[slashRename]{cspm}
+\usepackage{picinpar}
+
+\def\X{node {$\cross$}}
+\def\inCircle#1{\raisebox{.5pt}{\textcircled{\raisebox{-.9pt}{#1}}}}
+\def\m{$\mathord{\mid}$}
+\def\banana#1{\mathord{(\!\|} #1 \mathord{\|\!)}}
+\def\tick{
+  \tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (0.75,.7) -- (.25,.15) -- cycle;
+} 
+
+\def\project{\mathord{\|}}
+
+%% \def\scalasize{\footnotesize}
+%% \def\scalaInlineSize{\footnotesize}
+
+%% \def\cspmsize{\footnotesize}
+%% \def\cspmInlineSize{\footnotesize}
+%% \def\cspmDisplaySize{\footnotesize}
+\def\CSPMMR#1{\mbox{\cspmstyle #1}}
+%\def\cspmfont{\itshape}
+% Macros to control whether |...| produces Scala or CSP formatting.
+\def\inlineScala{\uncspMid\scalaMid}
+\def\inlineCSP{\unScalaMid\cspMid}
+\lstset{columns=fullflexible}
+%\inlineCSP
+\cspMid
+
+\usepackage{scalalistings}
+\unScalaMid
 \usepackage[slashRename]{cspm}
 \def\m{$\mathord{\mid}$}
 \def\CSPMMR#1{\mbox{\cspmstyle #1}}

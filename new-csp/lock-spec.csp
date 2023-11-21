@@ -2,8 +2,10 @@ channel callLock: LockID.ThreadID
 channel lockObtained: LockID.ThreadID
 channel lockNotObtained: LockID.ThreadID
 channel lockUnlocked: LockID.ThreadID
+channel end: ThreadID
 
 LockEvents = {|callLock, lockObtained, lockNotObtained, lockUnlocked|}
+LockEndEvents = union(LockEvents, {|end|})
 LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}
 
 -- LockSpec is a trace specification for a non-starvation-free lock
@@ -17,4 +19,14 @@ LockSpecObtained(t, l, ts, TS) = callLock.l?t2:(diff(TS, union(ts, {t}))) -> Loc
 -- CheckMutualExclusion(l) should trace refine any lock l with only the
 -- OnlyRootObtain(l, ts) events visible
 CheckMutualExclusion(l) = lockObtained.l?t:ThreadID -> lockUnlocked.l.t -> CheckMutualExclusion(l)
-OnlyRootObtain(l, ts) = {lockObtained.l.t, lockUnlocked.l.t | t <- ts}
+OnlyRootObtain(l, ts) = diff(LockEndEvents, 
+                             {lockObtained.l.t, lockUnlocked.l.t | t <- ts})
+
+AcquireLock :: (LockID, {ThreadID}, {ThreadID}) -> Proc
+AcquireLock(l, {}, TS) = end?t:TS -> AcquireLock(l, {}, diff(TS, {t}))
+                         [] callLock.l?t:TS -> AcquireLock(l, {t}, TS)
+AcquireLock(l, ts, TS) = end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t})) 
+                         [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
+                         [] lockObtained.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
+AcquireLockChans(l, ts) = diff(LockEvents, 
+                        {callLock.l.t, lockObtained.l.t | t <- ts})

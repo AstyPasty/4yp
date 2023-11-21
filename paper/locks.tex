@@ -52,14 +52,16 @@ We can now specify ideal properties of locks using these three channels. We will
   \begin{cspm}
     £$\forall$£(s,ref)£$ \in$£ failures(P) £$.$£ ref = £$\Sigma \implies$£ #(s£$\uparrow$£{|callLock|}) == #(s£$\uparrow$£{|lockObtained|})\end{cspm}
   
-  This can be captured by the following failures refinement on lock |l| with the set of all threads called |ThreadID|. This process can non-deterministically deadlock when no threads are attempting to obtain the lock and otherwise ensures that threads are either attempting to obtain the lock or obtaining the lock
+  This can be captured by the following failures refinement on lock |l| with the set of all threads called |ThreadID|. This process can non-deterministically deadlock when no threads are attempting to obtain the lock and otherwise ensures that if a thread attempts to acquire the lock then some thread obtains the lock
 
   \begin{cspm}
-    AcquireLock({}) = callLock.l?t -> AcquireLock({t}) |~| STOP
-    AcquireLock(ts) = callLock.l?t:{ThreadID\ts} -> AcquireLock(union(ts, {t}))
-                      [] lockObtained.l?t:ts -> AcquireLock(diff(ts, {t}))
+    AcquireLock(l, {}, TS) = end?t:TS -> AcquireLock(l, {}, diff(TS, {t}))
+                         [] callLock.l?t:TS -> AcquireLock(l, {t}, TS)
+    AcquireLock(l, ts, TS) = end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t})) 
+                         [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
+                         [] lockObtained.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
 
-    AcquireLock({}) [F= X \ (£$\Sigma$£ - [|callLock.l.t, lockObtained.l|])
+    AcquireLock(l, {} ThreadID) [F= X \ (£$\Sigma$£ - {|callLock.l.t, lockObtained.l, end|})
 
   \end{cspm}
  % \item Livelock Freedom: This specifies that the system must make actual progress; ie. that threads can't repeat actions without making any progress. This can be captured very simply by the following CSP which specifies that the lock must be obtainable an infinite amount of times
@@ -75,19 +77,20 @@ We can now specify ideal properties of locks using these three channels. We will
 
 Figure \ref{code:LockSpec} shows a simple trace specification for a lock, where |l| is the identity of the lock, |TS| is the set of all threads and |ts| is the set of all threads that have communicated a |callLock.l.t|, but haven't yet followed that by a |lockObtained.l.t|. At any point, |lock| can be called by a thread that does not currently hold the lock and that hasn't called the |lock| since it last held the lock (ie. a thread cannot call the lock twice without holding it in between). If some thread |X| holds the lock then it can unlock whenever, with the; likewise if no thread hold the lock, then any thread that has called |lock| but not obtained the lock yet can obtain the lock.
 
-This specification has the required property of mutual exclusion - once a thread has performed a |lockObtained.l.t|, no other threads can perform a |lockObtained.l.t'| until after the original thread releases the lock via |lockObtained.l.t|. It also satisfies deadlock-freeness since it can always communicate a |callLock| unless |ts == TS| in which causes some thread can communicate a |lockObtained|, followed later by a |lockUnlocked|. Livelock-freeness is also satisfied as all actions performed make progress towards obtaining the lock or releasing the lock once it is held. This specification does not satisfy the property of starvation-freeness as the following trace is possible:
+This specification has the required property of mutual exclusion - once a thread has performed a |lockObtained.l.t|, no other threads can perform a |lockObtained.l.t'| until after the original thread releases the lock via |lockObtained.l.t|. It also satisfies deadlock-freeness since it can always communicate a |callLock| unless either |ts == TS| (in which causes some thread can communicate a |lockObtained|, followed later by a |lockUnlocked|) or |TS = {}| (where all threads have 'terminated' via exit and hence is deadlock-free since no threads will attempt to obtain the lock). Livelock-freeness is also satisfied as all actions performed make progress towards obtaining the lock or releasing the lock once it is held. This specification does not satisfy the property of starvation-freeness as the following trace is possible:
 \begin{cspm}
   <callLock.l.A> ^ <callLock.l.B, lockObtained.l.B, lockUnlocked.l.B>£$^\omega$£
 \end{cspm}
 with thread A never gaining the lock; this is intended as locks are not required to be starvation-free, as seen later regarding the Test-and-test-and-set lock (TTAS).
 
-This specification process for locks will be very useful later as if we can show trace-equivalence between this specification and some implementation of a lock over |{|callLock, lockObtained, lockUnlocked|}| we can use the specification in more complex systems, reducing the size of the systmes produced by FDR and hence allowing us to test larger cases than would otherwise be possible. 
+This specification process for locks will be very useful later as if we can show trace-equivalence between this specification and some implementation of a lock over |{|callLock, lockObtained, lockUnlocked|}| we can use the specification in more complex systems, reducing the size of the systems produced by FDR and hence allowing us to test larger cases than would otherwise be possible. 
 
 \begin{figure}
 \begin{cspm}
   LockSpec :: (LockID, {ThreadID}, {ThreadID}) -> Proc
   LockSpec(l, ts, TS) = callLock.l?t:(diff(TS, ts)) -> LockSpec(l, union(ts, {t}), TS)
                   [] lockObtained.l?t:ts -> LockSpecObtained(t, l, ts, TS)
+                  [] end?t:TS -> LockSpec(l, ts, diff(TS, {t}))
   LockSpecObtained(t, l, ts, TS) = callLock.l?t2:(diff(TS, union(ts, {t}))) -> 
                                         LockSpecObtained(t, l, union(ts, {t2}), TS)
                   [] lockUnlocked.l.t -> LockSpec(l, diff(ts, {t}), TS)
@@ -118,11 +121,10 @@ The Test-and-Set (TAS) lock implementation is based on using an |AtomicBoolean| 
     def unlock = state.set(false)
   }
   \end{scala}
-  \caption{Test-and-set lock from \cite{CADS-4}  \label{fig:TASScala}}
+  \caption{Test-and-set lock from \cite{CADS-4} \framebox{Need to figure out figure placement} \label{fig:TASScala}}
 \end{figure}
 
 \subsubsection{Modelling with CSP}
-
 
 \inlineCSP
 
@@ -164,7 +166,7 @@ We finally model the threads that are attempting to obtain the lock by a process
 
 \subsubsection{Analysis}
 
-We will firstly examine whether this model fulfils the properties defined previously
+We will firstly examine whether this model fulfils the properties defined previously.The mutual exclusion test passes as expected
 
 
 

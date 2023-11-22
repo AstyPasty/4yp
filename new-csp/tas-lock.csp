@@ -12,8 +12,6 @@ datatype LockID = L.{0}
 
 -- Used to count the number of 'failed' getAndSets
 channel delay: ThreadID
--- Used to indicate a thread has terminated
-channel end: ThreadID
 
 -- state variable
 channel get, set : ThreadID . Bool
@@ -43,7 +41,7 @@ Thread(t) = callLock.L.0.t -> Lock(t); Unlock(t); Thread(t)
 
 
 -- All threads run in parallel with no visibility of each others actions,
--- All initially do no hold the lock
+-- All initially do not hold the lock
 AllThreads = ||| t : ThreadID @ Thread(t)
 -- Allow all threads to peform actions on the state variable
 ActualSystem = (AllThreads [|InternalChannels|] State)
@@ -76,15 +74,18 @@ assert ActualSystemNoTerminate :[deadlock free]
 
 -- Check that no two threads hold the lock at the same time
 assert CheckMutualExclusion(L.0) [T= 
-          ActualSystemR \ diff(LockEvents, OnlyRootObtain(L.0, ThreadID))
+          ActualSystemRExtDiv \ OnlyRootObtain(L.0, ThreadID)
+
+assert AcquireLock(L.0, {}, ThreadID) [F=
+          ActualSystemRExtDiv \ AcquireLockChans(L.0, ThreadID)
 
 -- Check no divergence before the lock is first held
 CheckNoDiv = getAndSet?t!False.True -> STOP 
           [] get?t._ -> CheckNoDiv
-assert (ActualSystem [|{|getAndSet|}|] CheckNoDiv) 
-          \ {|get|} :[divergence free]
+assert (ActualSystem [|{|getAndSet, get|}|] CheckNoDiv) 
+          \ {|get, getAndSet|} :[divergence free]
 
 
 
-assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemR
+assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemRExtDiv
 assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)

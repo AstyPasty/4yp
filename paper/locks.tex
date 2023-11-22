@@ -243,3 +243,46 @@ Suppose we have an implementation of a lock that works for upto n threads and no
 \end{figure}
 
 Here, for T.5.1 to obtain the root lock L.0, it must first obtain L.5 then L.2 then it can attempt to lock L.0. If it holds L.0 then all of the other 7 threads can't enter their critical section. Once T.5.1 wants to release the lock it unlocks L.0, then unlocks L.2 then finally unlocks L.5. T.5.1 can now either terminate or try to reobtain the root lock.
+
+\subsubsection{Modelling}
+
+We model the tree structure so that the structure of the tree is independent from the implementation of the individual locks; this will allow us to examine how different the different properties of the locks affect the overall structure.
+
+For convenience, we shall call the threads |T.{y}.{z}| where y is the leaf lock that the thread will first try and obtain and z is just an index over the threads starting at that leaf lock. Since the thread should be agnostic to the implementation of the lock, the thread initially either exits or calls |LockTree| to try and obtain the lock. Once the thread has obtained the lock, it then releases it by a call to |UnlockTree|. Both |LockTree| and |UnlockTree| are recursively defined, traversing their way up and down the tree respectively before terminating once they have locked the root lock or unlocked a leaf lock respectively. 
+|nextUnlock(x, y)| is used as a helper function to generate the next lock to release 
+
+\begin{cspm}
+  nextUnlock(x, y) = if (y / 2 > x) then nextUnlock(x, y/2) else L.y 
+
+  LockTree(t, L.0) = SKIP
+  LockTree(T.y.z, L.x) = Lock(T.y.z, L.x); LockTree(T.x.y, L.((x-1)/2))
+
+  UnlockTree(T.y.z, L.x) = if (x == y) then Unlock(T.y.z, L.x); SKIP
+                           else Unlock(T.y.z, L.y); 
+                                UnlockTree(T.y.z, nextUnlock(x, y))
+
+  Thread(T.y.z) = callLock.L.y.T.y.z -> LockTree(T.y.z, L.y); 
+                                          UnlockTree(T.y.z, L.0); 
+                                          Thread(T.y.z)
+                 [] end.T.y.z -> SKIP
+\end{cspm}
+
+We can use the |lockObtained| and |lockUnlocked| events of the root |L.0| lock as the points where a given thread obtains and releases the lock and the |callLock| events of the leaf nodes to represent when a thread tries to access the lock. To check that this lock fulfils the required properties we will hide all internal locking events; we do not care how the lock functions internally as long as it follows the required specifications. We will also rename the the three above events to appear to occur on the lock L.0. The system is therefore constructed as follows:
+
+\begin{cspm}
+  -- Initialise threads to not hold their locks
+  AllThreads = ||| (T.y.z) : ThreadID @ Thread(T.y.z)
+  -- Initialise all the locks
+  AllLocks = ||| (L.x) : LockID @ LockSystem(L.x)
+  -- Sychronise the threads with all the locks
+  TreeInternal = (AllThreads [|LockEvents|] AllLocks)
+  -- Hide unwanted lock events from internal locks
+  TreeHidden = TreeInternal \ Union(diff({|lockObtained|}, {|lockObtained.L.0|}), 
+                                     diff({|unlockedLock|}, {|unlockedLock.L.0|}),
+                                     diff({|callLock|}, 
+                                            {callLock.L.y.T.y.z | T.y.z <- ThreadID}))
+  -- Rename linearization points so all refer to L.0
+  TreeInternalRenamed = TreeHidden [[callLock.L.x.t <- callLock.L.0.t]]
+\end{cspm}
+
+\framebox{Add analysis of beheviours with different node locks etc}

@@ -1,0 +1,64 @@
+include "variable.csp"
+
+WaitNotify :: (SignalID, {ThreadID}) -> Proc
+WaitNotify(s, ts) = wait.s?t:diff(ThreadID,ts) -> WaitNotify(s, union({t},ts))
+                    [] notify.s?_ -> Notifying(s, seq(ts))
+Notifying :: (SignalID, <ThreadID>) -> Proc
+Notifying(s, <>) = WaitNotify(s, {})
+Notifying(s, <t>^ts) = notified.s.t -> Notifying(s, ts) 
+
+Synchronize(s) = syncEnter.s?t:ThreadID -> syncExit.s.t -> Synchronize(s)
+
+SignalUpAndWait :: (SignalID, ThreadID) -> Proc
+SignalUpAndWait(s, t) = syncEnter.s.t -> signalUpAndWait.s.t -> getState.s.t?val ->
+                                if val == true then DIV -- Must be true
+                                else setState.s.t.true -> notify.s.t ->
+                                                        SignalWaitingForFalse(s, t)
+
+WaitForSignalUp :: (SignalID, ThreadID) -> Proc                                                        
+WaitForSignalUp(s, t) = syncEnter.s.t -> waitForSignalUp.s.t -> SignalWaitingForTrue(s, t)--getState.s.t?val -> 
+--                                 if val == false then SignalWaitingForTrue(s, t)
+--                                 else syncExit.s.t -> SKIP -- signal has been set up by child
+
+SignalDown :: (SignalID, ThreadID) -> Proc
+SignalDown(s, t) = syncEnter.s.t -> signalDown.s.t -> setState.s.t.false -> notify.s.t -> syncExit.s.t -> SKIP -- No threads to notify hence done
+
+--  TODO - implement sliding timeouts
+
+SignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
+SignalWaitingForFalse(s, t) = getState.s.t?val ->
+                          if val == false then syncExit.s.t -> SKIP -- can terminate
+                          else wait.s.t -> syncExit.s.t -> notified.s.t -> syncEnter.s.t -> SignalWaitingForFalse(s, t)
+                                
+SignalWaitingForTrue :: (SignalID, ThreadID) -> Proc
+SignalWaitingForTrue(s, t) = getState.s.t?val ->
+                          if val == true then syncExit.s.t -> SKIP -- can terminate
+                          else wait.s.t -> syncExit.s.t -> notified.s.t -> syncEnter.s.t -> SignalWaitingForTrue(s, t)
+
+
+SpecParent = WaitForSignalUp(S.0, T.0); SignalDown(S.0, T.0); SKIP
+SpecChild = SignalUpAndWait(S.0, T.1); SKIP
+SpecSystem = (SpecParent [|{|notify|}|] SpecChild) [|stateChannels|] StateArray
+
+assert SpecSystem :[divergence free]
+
+
+sSignalUpAndWait :: (SignalID, ThreadID) -> Proc
+sSignalUpAndWait(s, t) = signalUpAndWait.s.t -> getState.s.t?val ->
+                                if val == true then DIV -- Must be true
+                                else setState.s.t.true -> getState.s.t.false -> SKIP
+
+sWaitForSignalUp :: (SignalID, ThreadID) -> Proc                                                        
+sWaitForSignalUp(s, t) = waitForSignalUp.s.t -> getState.s.t.true -> SKIP -- can terminate
+
+sSignalDown :: (SignalID, ThreadID) -> Proc
+sSignalDown(s, t) = signalDown.s.t -> setState.s.t.false -> SKIP -- No threads to notify hence done
+
+--  TODO - implement sliding timeouts
+
+sSignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
+sSignalWaitingForFalse(s, t) = getState.s.t.false -> SKIP
+                                
+sSignalWaitingForTrue :: (SignalID, ThreadID) -> Proc
+sSignalWaitingForTrue(s, t) = getState.s.t.true -> SKIP -- can terminate
+

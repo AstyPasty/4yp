@@ -1,0 +1,133 @@
+include "signal.csp"
+
+n = 3
+datatype ThreadID = T.{0..n-1}
+datatype SignalID = S.{0..n-1}
+
+channel getState, setState : SignalID . ThreadID . Bool
+channel gASState : SignalID . ThreadID . Bool . Bool
+stateChannels = {|getState, setState, gASState|}
+StateArray = ||| s : SignalID @ Var(false, getState.s, setState.s, gASState.s)
+
+channel wait, notify, notified : SignalID . ThreadID
+notifyChannels = {|wait, notify, notified|}
+WaitNotifyArray = ||| s : SignalID @ WaitNotify(s, {})
+
+channel syncEnter, syncExit : SignalID . ThreadID
+syncChannels = {|syncEnter, syncExit|}
+SynchronizeArray = ||| s : SignalID @ Synchronize(s)
+
+channel signalUpAndWait, waitForSignalUp, signalDown : SignalID . ThreadID
+signalChannels = {|signalUpAndWait, waitForSignalUp, signalDown|}
+
+channel done: ThreadID
+channel end: ThreadID
+
+Thread(T.me) = ThreadIf1(T.me) [] end.T.me -> SKIP
+ThreadIf1(T.me) = if (me*2+1 < n) then WaitForSignalUp(S.(me*2+1), T.me); ThreadIf2(T.me) else ThreadIf2(T.me)
+ThreadIf2(T.me) = if (me*2+2 < n) then WaitForSignalUp(S.(me*2+2), T.me); ThreadIf3(T.me) else ThreadIf3(T.me)
+ThreadIf3(T.me) = if me != 0 then SignalUpAndWait(S.me, T.me); ThreadIf4(T.me) else ThreadIf4(T.me)
+ThreadIf4(T.me) = if (me*2+1 < n) then SignalDown(S.(me*2+1), T.me); ThreadIf5(T.me) else ThreadIf5(T.me)
+ThreadIf5(T.me) = if (me*2+2 < n) then SignalDown(S.(me*2+2), T.me); done.T.me -> Thread(T.me) else done.T.me -> Thread(T.me)
+
+-- (if (me*2+1 < n) then WaitForSignalUp(S.(me*2+1), T.me); SKIP else SKIP);
+--                (if (me*2+2 < n) then WaitForSignalUp(S.(me*2+2), T.me); SKIP else SKIP);
+--                (if me != 0 then SignalUpAndWait(S.me, T.me); SKIP else SKIP);
+--                (if (me*2+1 < n) then SignalDown(S.(me*2+1), T.me); SKIP else SKIP);
+--                (if (me*2+2 < n) then SignalDown(S.(me*2+2), T.me); done.T.me -> SKIP else done.T.me -> SKIP)
+
+Threads = ||| t : ThreadID @ Thread(t)
+
+NotifyThreads = Threads [|notifyChannels|] WaitNotifyArray
+
+SyncThreads = NotifyThreads [|syncChannels|] SynchronizeArray
+
+BarrierSystem = SyncThreads [|stateChannels|] StateArray
+
+assert BarrierSystem :[divergence free]
+assert not BarrierSystem :[deadlock free]
+assert BarrierSystem [|{|end|}|] STOP :[deadlock free]
+
+DoneCounter(x) = if x == n then DIV else done?_ -> DoneCounter(x+1)
+
+-- New div must've been introduced by all threads communicating done
+assert not BarrierSystem [|{|done|}|] DoneCounter(0) :[divergence free]
+
+BarrierSystemExt = (BarrierSystem)
+                      \ Union({notifyChannels, stateChannels, syncChannels})
+
+assert BarrierSystemExt :[divergence free]
+
+-- channel simpleUp, simpleDown: SignalID
+
+-- simpleChannels = {|simpleUp, simpleDown|}
+
+-- BarrierSimplified :: (ThreadID) -> Proc
+-- BarrierSimplified(T.me) = 
+--                if (me*2+2 < n) then     simpleUp.S.(me*2+1) -> (simpleUp.S.(me*2+2) ->
+--                                            if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1) -> simpleDown.S.(me*2+2) -> done.T.me -> SKIP
+--                                            else simpleDown.S.(me*2+1) -> simpleDown.S.(me*2+2) -> done.T.me -> SKIP)
+--                                         [] simpleUp.S.(me*2+2) -> (simpleUp.S.(me*2+1) ->
+--                                            if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1) -> simpleDown.S.(me*2+2) -> done.T.me -> SKIP
+--                                            else simpleDown.S.(me*2+1) -> simpleDown.S.(me*2+2) -> done.T.me -> SKIP)
+--                else if (me*2+1 < n) then     simpleUp.S.(me*2+1) -> 
+--                                         if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1) -> done.T.me -> SKIP
+--                                         else simpleDown.S.(me*2+1) -> done.T.me -> SKIP
+--                else if me != 0 then simpleUp.S.me -> simpleDown.S.me -> done.T.me -> SKIP
+--                else done.T.me -> SKIP
+
+-- -- SignalSimplified(S.me) = 
+-- --               if (me*2+2 < n) then     simpleUp.S.(me*2+1).T.(me*2+1) -> (simpleUp.S.(me*2+2).T.me ->
+-- --                                            if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1).T.(me*2+1) -> simpleDown.S.(me*2+2).T.me -> done.T.me -> SKIP
+-- --                                            else simpleDown.S.(me*2+1).T.(me*2+1) -> simpleDown.S.(me*2+2).T.me -> done.T.me -> SKIP)
+-- --                                         [] simpleUp.S.(me*2+2).T.me -> (simpleUp.S.(me*2+1) ->
+-- --                                            if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1).T.(me*2+1) -> simpleDown.S.(me*2+2).T.me -> done.T.me -> SKIP
+-- --                                            else simpleDown.S.(me*2+1).T.(me*2+1) -> simpleDown.S.(me*2+2).T.me -> done.T.me -> SKIP)
+-- --                else if (me*2+1 < n) then     simpleUp.S.(me*2+1).T.(me*2+1) -> 
+-- --                                         if me != 0 then simpleUp.S.me -> simpleDown.S.me -> simpleDown.S.(me*2+1).T.(me*2+1) -> done.T.me -> SKIP
+-- --                                         else simpleDown.S.(me*2+1).T.(me*2+1) -> done.T.me -> SKIP
+-- --                else if me != 0 then simpleUp.S.me -> simpleDown.S.me -> done.T.me -> SKIP
+-- --                else done.T.me -> SKIP
+
+
+-- SimplifiedSystem =  || (T.me) : ThreadID @ [Union({{simpleUp.S.me,simpleDown.S.me}, 
+--                                                    {simpleUp.S.(me*2+1),simpleDown.S.(me*2+1) | (me*2+1) < n}, 
+--                                                    {simpleUp.S.(me*2+2),simpleDown.S.(me*2+2) | (me*2+2) < n}, 
+--                                                    {done.T.me},
+--                                                    {end.T.me}})] 
+--                                             (BarrierSimplified(T.me) |~| end.T.me -> SKIP)
+
+-- assert SimplifiedSystem [T= BarrierSystemExt
+
+-- doneCheck = done.T.1 -> done.T.0 -> DIV
+-- assert BarrierSystemExt [|{|done|}|] doneCheck :[divergence free]
+
+
+
+
+
+sThread(T.me) = sThreadIf1(T.me) [] end.T.me -> SKIP
+sThreadIf1(T.me) = if (me*2+1 < n) then sWaitForSignalUp(S.(me*2+1), T.me); sThreadIf2(T.me) else sThreadIf2(T.me)
+sThreadIf2(T.me) = if (me*2+2 < n) then sWaitForSignalUp(S.(me*2+2), T.me); sThreadIf3(T.me) else sThreadIf3(T.me)
+sThreadIf3(T.me) = if me != 0 then sSignalUpAndWait(S.me, T.me); sThreadIf4(T.me) else sThreadIf4(T.me)
+sThreadIf4(T.me) = if (me*2+1 < n) then sSignalDown(S.(me*2+1), T.me); sThreadIf5(T.me) else sThreadIf5(T.me)
+sThreadIf5(T.me) = if (me*2+2 < n) then sSignalDown(S.(me*2+2), T.me); done.T.me ->sThread(T.me) else done.T.me -> sThread(T.me)
+
+sThreads = ||| t : ThreadID @ sThread(t)
+
+sBarrierSystem = (sThreads [|stateChannels|] StateArray) \ stateChannels
+
+assert sBarrierSystem :[divergence free]
+assert not sBarrierSystem  :[deadlock free]
+assert sBarrierSystem [|{|end|}|] STOP :[deadlock free]
+
+assert sBarrierSystem [T= BarrierSystemExt
+assert BarrierSystemExt [T= sBarrierSystem
+
+-- New div must've been introduced by all threads communicating done
+assert not sBarrierSystem [|{|done|}|] DoneCounter(0) :[divergence free]
+
+
+
+
+

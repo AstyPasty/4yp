@@ -1,64 +1,75 @@
 include "variable.csp"
 
+-- WaitNotify and Notifying are used to model the wait and notify functions
+-- WaitNotify tracks the waiting threads (for a given object), then once 
+-- a notify is receievd Notifying is used to notify the threads
+-- This is so that a notify doesn't have to sync with each thread 
+-- (particularly, so each notfy isn't blocking)
 WaitNotify :: (SignalID, {ThreadID}) -> Proc
 WaitNotify(s, ts) = wait.s?t:diff(ThreadID,ts) -> WaitNotify(s, union({t},ts))
-                    [] notify.s?_ -> Notifying(s, seq(ts))
+                 [] notify.s?_ -> Notifying(s, seq(ts))
+
 Notifying :: (SignalID, <ThreadID>) -> Proc
 Notifying(s, <>) = WaitNotify(s, {})
 Notifying(s, <t>^ts) = notified.s.t -> Notifying(s, ts) 
 
+
+-- Synchronize is used to model the synchronize blocks, only allowing 
+-- one thread to be performing actions on the Signal object at any one 
+-- time
 Synchronize(s) = syncEnter.s?t:ThreadID -> syncExit.s.t -> Synchronize(s)
 
 SignalUpAndWait :: (SignalID, ThreadID) -> Proc
-SignalUpAndWait(s, t) = syncEnter.s.t -> signalUpAndWait.s.t -> getState.s.t?val ->
-                                if val == true then DIV -- Must be true
-                                else setState.s.t.true -> notify.s.t ->
-                                                        SignalWaitingForFalse(s, t)
+SignalUpAndWait(s, t) = syncEnter.s.t -> signalUpAndWait.s.t -> 
+                        getState.s.t?val ->
+                          if val == true then DIV -- Required to be false
+                          else setState.s.t.true ->
+                               notify.s.t ->
+                               SignalWaitingForFalse(s, t)
 
 WaitForSignalUp :: (SignalID, ThreadID) -> Proc                                                        
-WaitForSignalUp(s, t) = syncEnter.s.t -> waitForSignalUp.s.t -> SignalWaitingForTrue(s, t)--getState.s.t?val -> 
---                                 if val == false then SignalWaitingForTrue(s, t)
---                                 else syncExit.s.t -> SKIP -- signal has been set up by child
+WaitForSignalUp(s, t) = syncEnter.s.t -> waitForSignalUp.s.t -> 
+                                         SignalWaitingForTrue(s, t)
 
 SignalDown :: (SignalID, ThreadID) -> Proc
-SignalDown(s, t) = syncEnter.s.t -> signalDown.s.t -> setState.s.t.false -> notify.s.t -> syncExit.s.t -> SKIP -- No threads to notify hence done
+SignalDown(s, t) = syncEnter.s.t -> signalDown.s.t -> 
+                   setState.s.t.false -> notify.s.t -> 
+                   syncExit.s.t -> SKIP
 
---  TODO - implement sliding timeouts
-
+--  TODO - implement sliding timeouts on wait to simulate the spurious behaviour seen in Scala
 SignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
 SignalWaitingForFalse(s, t) = getState.s.t?val ->
-                          if val == false then syncExit.s.t -> SKIP -- can terminate
-                          else wait.s.t -> syncExit.s.t -> notified.s.t -> syncEnter.s.t -> SignalWaitingForFalse(s, t)
+                          if val == false then syncExit.s.t -> SKIP
+                          else wait.s.t -> syncExit.s.t -> 
+                               notified.s.t -> syncEnter.s.t -> 
+                               SignalWaitingForFalse(s, t)
                                 
 SignalWaitingForTrue :: (SignalID, ThreadID) -> Proc
 SignalWaitingForTrue(s, t) = getState.s.t?val ->
-                          if val == true then syncExit.s.t -> SKIP -- can terminate
-                          else wait.s.t -> syncExit.s.t -> notified.s.t -> syncEnter.s.t -> SignalWaitingForTrue(s, t)
+                          if val == true then syncExit.s.t -> SKIP 
+                          else wait.s.t -> syncExit.s.t -> 
+                               notified.s.t -> syncEnter.s.t -> 
+                               SignalWaitingForTrue(s, t)
 
 
-SpecParent = WaitForSignalUp(S.0, T.0); SignalDown(S.0, T.0); SKIP
-SpecChild = SignalUpAndWait(S.0, T.1); SKIP
-SpecSystem = (SpecParent [|{|notify|}|] SpecChild) [|stateChannels|] StateArray
-
-assert SpecSystem :[divergence free]
-
+-- The following s* processes are simplified versions of their 
+-- corresponding direct translations above
+-- We remove the synchronization and notifcation/wait functionality
+-- from the above; since state behaves atomically and only one thread 
+-- will be writing to state at any time under correct usage (child to 
+-- set up first then parent to set down) we can just wait until the 
+-- value of thread is changed to allow a 'wait' to end
 
 sSignalUpAndWait :: (SignalID, ThreadID) -> Proc
 sSignalUpAndWait(s, t) = signalUpAndWait.s.t -> getState.s.t?val ->
-                                if val == true then DIV -- Must be true
-                                else setState.s.t.true -> getState.s.t.false -> SKIP
+                                if val == true then DIV -- Assertion
+                                else setState.s.t.true -> 
+                                     getState.s.t.false -> SKIP
 
 sWaitForSignalUp :: (SignalID, ThreadID) -> Proc                                                        
-sWaitForSignalUp(s, t) = waitForSignalUp.s.t -> getState.s.t.true -> SKIP -- can terminate
+sWaitForSignalUp(s, t) = waitForSignalUp.s.t -> getState.s.t.true 
+                         -> SKIP -- can terminate
 
 sSignalDown :: (SignalID, ThreadID) -> Proc
-sSignalDown(s, t) = signalDown.s.t -> setState.s.t.false -> SKIP -- No threads to notify hence done
-
---  TODO - implement sliding timeouts
-
-sSignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
-sSignalWaitingForFalse(s, t) = getState.s.t.false -> SKIP
-                                
-sSignalWaitingForTrue :: (SignalID, ThreadID) -> Proc
-sSignalWaitingForTrue(s, t) = getState.s.t.true -> SKIP -- can terminate
+sSignalDown(s, t) = signalDown.s.t -> setState.s.t.false -> SKIP 
 

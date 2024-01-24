@@ -1,0 +1,16 @@
+-- A process representign a variable. 
+
+-- A variable with value `value`, which can be read or written on channels get
+-- and set (passing ThreadID and values). 
+Var(value, get, set) = 
+  get?_!value -> Var(value, get, set)
+  [] set?_?value' -> Var(value', get, set)
+
+-- An array of variables, indexed by Index, all with initial value value0,
+-- which can be read or written on channels get and set (passing ThreadID,
+-- index and values).
+Array(Index, value0, get, set) =
+  let Entry(index, value) = 
+        get?_!index.value -> Entry(index, value)
+        [] set?_!index?value' -> Entry(index, value')
+  within ||| index : Index @ Entry(index, value0)

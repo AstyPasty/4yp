@@ -1,29 +1,12 @@
-include "signal.csp"
 
-n = 7
+
+n = 4
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 
--- The state variables for each of the n signal objects
-channel getState, setState : SignalID . ThreadID . Bool
-channel gASState : SignalID . ThreadID . Bool . Bool
-stateChannels = {|getState, setState, gASState|}
-StateArray = ||| s : SignalID @ Var(false, getState.s, setState.s, gASState.s)
-
--- The wait/notify restrictions for each of the signal objects
-channel wait, notify, notified : SignalID . ThreadID
-notifyChannels = {|wait, notify, notified|}
-WaitNotifyArray = ||| s : SignalID @ WaitNotify(s, {})
-
--- The synchronisation channels for each of the signal objects
-channel syncEnter, syncExit : SignalID . ThreadID
-syncChannels = {|syncEnter, syncExit|}
-SynchronizeArray = ||| s : SignalID @ Synchronize(s)
-
--- The channels to represent a call of each fo the methods offered by 
--- the signal object
-channel signalUpAndWait, waitForSignalUp, signalDown : SignalID . ThreadID
-signalChannels = {|signalUpAndWait, waitForSignalUp, signalDown|}
+include "signal.csp"
+-- Need a better way here
+instance Sig3 = Signal(S.0, ThreadID)
 
 -- Channels to represent the completion of a barrier sync and a thread 
 -- terminating
@@ -81,39 +64,39 @@ assert BarrierSystemExt :[divergence free]
 
 
 
--- Version of the threads that makes use of the simplified Signal object
-sThread(T.me) = sThreadIf1(T.me) [] end.T.me -> SKIP
-sThreadIf1(T.me) = if (me*2+1 < n) then sWaitForSignalUp(S.(me*2+1), T.me); 
-                                        sThreadIf2(T.me) 
-                   else sThreadIf2(T.me)
-sThreadIf2(T.me) = if (me*2+2 < n) then sWaitForSignalUp(S.(me*2+2), T.me); 
-                                        sThreadIf3(T.me) 
-                   else sThreadIf3(T.me)
-sThreadIf3(T.me) = if me != 0 then sSignalUpAndWait(S.me, T.me);
-                                   sThreadIf4(T.me) 
-                   else sThreadIf4(T.me)
-sThreadIf4(T.me) = if (me*2+1 < n) then sSignalDown(S.(me*2+1), T.me); 
-                                        sThreadIf5(T.me) 
-                   else sThreadIf5(T.me)
-sThreadIf5(T.me) = if (me*2+2 < n) then sSignalDown(S.(me*2+2), T.me); 
-                                        done.T.me -> sThread(T.me) 
-                   else done.T.me -> sThread(T.me)
+-- -- Version of the threads that makes use of the simplified Signal object
+-- sThread(T.me) = sThreadIf1(T.me) [] end.T.me -> SKIP
+-- sThreadIf1(T.me) = if (me*2+1 < n) then sWaitForSignalUp(S.(me*2+1), T.me); 
+--                                         sThreadIf2(T.me) 
+--                    else sThreadIf2(T.me)
+-- sThreadIf2(T.me) = if (me*2+2 < n) then sWaitForSignalUp(S.(me*2+2), T.me); 
+--                                         sThreadIf3(T.me) 
+--                    else sThreadIf3(T.me)
+-- sThreadIf3(T.me) = if me != 0 then sSignalUpAndWait(S.me, T.me);
+--                                    sThreadIf4(T.me) 
+--                    else sThreadIf4(T.me)
+-- sThreadIf4(T.me) = if (me*2+1 < n) then sSignalDown(S.(me*2+1), T.me); 
+--                                         sThreadIf5(T.me) 
+--                    else sThreadIf5(T.me)
+-- sThreadIf5(T.me) = if (me*2+2 < n) then sSignalDown(S.(me*2+2), T.me); 
+--                                         done.T.me -> sThread(T.me) 
+--                    else done.T.me -> sThread(T.me)
 
-sThreads = ||| t : ThreadID @ sThread(t)
+-- sThreads = ||| t : ThreadID @ sThread(t)
 
-sBarrierSystem = (sThreads [|stateChannels|] StateArray) \ stateChannels
+-- sBarrierSystem = (sThreads [|stateChannels|] StateArray) \ stateChannels
 
-assert sBarrierSystem :[divergence free]
-assert not sBarrierSystem  :[deadlock free]
-assert sBarrierSystem [|{|end|}|] STOP :[deadlock free]
+-- assert sBarrierSystem :[divergence free]
+-- assert not sBarrierSystem  :[deadlock free]
+-- assert sBarrierSystem [|{|end|}|] STOP :[deadlock free]
 
--- Simplified signal objects are trace refined by the Barrier system
-assert sBarrierSystem [T= BarrierSystemExt
--- THe two are trace equivalent (as intended)
---assert BarrierSystemExt [T= sBarrierSystem
+-- -- Simplified signal objects are trace refined by the Barrier system
+-- assert sBarrierSystem [T= BarrierSystemExt
+-- -- THe two are trace equivalent (as intended)
+-- --assert BarrierSystemExt [T= sBarrierSystem
 
--- New div must've been introduced by all threads communicating done
-assert not sBarrierSystem [|{|done|}|] DoneCounter(0) :[divergence free]
+-- -- New div must've been introduced by all threads communicating done
+-- assert not sBarrierSystem [|{|done|}|] DoneCounter(0) :[divergence free]
 
 
 

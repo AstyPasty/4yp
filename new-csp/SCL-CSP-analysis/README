@@ -1,0 +1,77 @@
+Files marked with "*" are top-level files, containing refinement checks.
+
+Building blocks
+---------------
+
+Macros.csp: generic helpful macros.
+
+Types.csp: types returned by various functions.
+
+Variable.csp: model of a variable.
+
+JVMMonitor.csp: model of a JVM monitor.
+
+MonitorCondition.csp: model of an SCL monitor.
+
+SCL Components
+--------------
+
+ChannelInterface.csp: the interface of a channel.
+
+AltInterface.csp: the interface of an alt. 
+
+NewSyncChan.csp
+
+Alt.csp
+
+SyncChanTest.csp: test upon synchronous channel, without alts
+
+
+Combined tests
+--------------
+
+These directly test a combination of an alt and channels.
+
+CombinedTestSingle.csp: test of an alt with a single branch.
+
+CombinedTest.csp: test of an alt with two branches.
+
+CombinedSpec.csp: most of the specification (also used in
+CompositionalTest.csp)
+
+
+Idealised models and tests
+--------------------------
+
+IdealisedAlt.csp: idealised model of an alt.
+
+IdealisedAltTest.csp: test of an Alt against IdealisedAlt.
+
+IdealisedChan.csp: idealised model of a channel 
+
+IdealisedChanTest.csp: test of a channel against IdealisedChan
+
+CompositionalTest*.csp: test of the combination of an IdealisedAlt and
+IdealisedChans. 
+
+IdealisedChan2.csp: experimental model, trying to detect errors earlier.  Not working. 
+
+
+TODO NEXT
+
+Current experiment: have alt hold lock during registration.  Have callbacks
+assert !registering.  **Make these changes in implementation**
+
+Continue checking NewSyncChan, interaction with alts.
+
+Test Scala code.
+
+
+Old
+---
+
+AltTest*.csp
+
+Bug.csp
+
+SyncChan*.csp

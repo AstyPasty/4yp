@@ -1,0 +1,70 @@
+
+-- My modified version of JVMMonitor from Lowe's GitHub
+-- Changed the types of the channels to more easily allow a 
+-- non-hardcoded number of monitor instances
+
+-- Events for monitor actions
+channel acquire, release: ObjectID . ThreadID
+channel wait, timedAwait: ObjectID . ThreadID 
+channel notify: ObjectID . ThreadID . ThreadID
+channel notifyAll: ObjectID . ThreadID 
+
+-- We use a set waiting ::{ThreadID} to record those threads waiting.
+
+-- The monitor in the unlocked state.  waiting records those threads waiting.
+-- Unlocked :: ({ThreadID}) -> Proc
+Unlocked(waiting) =
+  -- Note: we don't allow waiting threads to acquire the lock. 
+  acquire?t:diff(ThreadID, waiting) -> Locked(t, waiting)
+  []
+  spuriousWakeup?t:waiting -> Unlocked(diff(waiting,{t}))
+
+-- The monitor locked by t.
+-- Locked :: (ThreadID, {ThreadID}) -> Proc 
+Locked(t, waiting) = 
+  release.t -> Unlocked(waiting)
+  []
+  wait.t -> Unlocked(union(waiting, {t}))
+  []
+  notify.t?t':waiting -> Locked(t, diff(waiting, {t'}))
+  []
+  -- Avoid blocking signals if no thread waiting
+  empty(waiting) & notify.t.t -> Locked(t, waiting)
+  []
+  notifyAll.t -> Locked(t, {})
+  []
+  spuriousWakeup?t':waiting -> Locked(t, diff(waiting,{t'}))
+
+-- Regulator on spurious wakeups
+Reg = CHAOS({|spuriousWakeup|})
+
+channel spuriousWakeup : ThreadID
+
+-- All events except spuriousWakeup
+events = {| acquire, release, wait, notify, notifyAll |}
+
+runWith(P) = P [| events |] (Unlocked({})  [| {|spuriousWakeup|} |] Reg)
+
+-- Interface to threads.
+
+-- Lock the monitor
+Lock(t) = acquire.t -> SKIP
+
+-- Unlock the monitor
+Unlock(t) = release.t -> SKIP
+
+-- Perform P under mutual exclusion
+Synchronized(t, P) = Lock(t); P; Unlock(t)
+
+-- Perform P under mutual exclusion, and apply cont to the result. 
+-- MutexC :: (ThreadID, ((a) -> Proc) -> Proc, (a) -> Proc) -> Proc
+SynchronizedC(t, P, cont) = Lock(t); P(\ x @ Unlock(t); cont(x))
+
+-- Perform a wait(), and then regain the lock.
+Wait(t) = wait.t -> acquire.t -> SKIP 
+
+-- perform a notify()
+Notify(t) = notify.t?t' -> SKIP
+
+-- perform a notifyAll()
+NotifyAll(t) = notifyAll.t -> SKIP

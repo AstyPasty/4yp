@@ -1,0 +1,56 @@
+include "variable.csp"
+include "lock-spec.csp"
+
+-- We will use *_SPIN to represent types/sets/values to be used in the 
+--   implementation of the tree using TTAS locks at each node
+-- Likewise *_SPEC is used with the tree lock using the LockSpec
+-- As shown in the spin-lock file, the two locks are equivalent under 
+-- the traces model, hence it is valid to substitute the LockSpec for 
+-- the TTAS lock under traces and significantly more computationally 
+-- efficient
+
+NTHREADS_SPIN = 4 
+NTHREADS_SPEC = 4
+NLOCKS_SPIN = NTHREADS_SPIN - 1
+NLOCKS_SPEC = NTHREADS_SPEC - 1
+
+datatype LockID = L.(union({0..NLOCKS_SPIN-1}, {0..NLOCKS_SPEC-1}))
+subtype Lock_SPIN = L.{0..NLOCKS_SPIN-1}
+subtype Lock_SPEC = L.{0..NLOCKS_SPEC-1}
+datatype ThreadID = T.(union({0..NLOCKS_SPIN-1}, {0..NLOCKS_SPEC-1})).{1..2}
+subtype Thread_SPIN = T.{(NLOCKS_SPIN-1)/2..NLOCKS_SPIN-1}.{1..2}
+subtype Thread_SPEC = T.{(NLOCKS_SPEC-1)/2..NLOCKS_SPEC-1}.{1..2}
+
+channel delay: ThreadID.LockID
+channel getAndSet: LockID.ThreadID.Bool.Bool
+channel get: LockID.ThreadID.Bool
+channel set: LockID.ThreadID.Bool
+InternalChannels = {|get, set, getAndSet, delay|}
+
+-- Array of variables with index Lock_SPIN
+LocksSpin = Array(Lock_SPIN, false, get, set, getAndSet)
+
+Lock :: (ThreadID, LockID) -> Proc                              -- def lock = do {
+Lock(t, l) =  get.l.t?s -> if s == True then Lock(t, l)               --   while(state.get()){ }
+           else getAndSet.l.t?v!True -> if v == False then SKIP -- } (while(state.getAndSet(true)))
+           else delay.t.l -> Lock(t, l)  -- getAndSet returned false so spin and retry
+
+Unlock :: (ThreadID, LockID) -> Proc
+Unlock(t, l) = set.l.t!False -> SKIP -- def unlock = state.set(false)
+
+
+LockTree(t, L.0) = SKIP
+LockTree(T.y.z, L.x) = Lock(T.y.z, L.x); LockTree(T.x.y, L.((x-1)/2))
+
+UnlockTree(T.y.z, L.x) = if (x==y) then Unlock(T.y.z, L.x); SKIP
+                         else Unlock(T.y.z, L.y); 
+                              UnlockTree(T.y.z, nextUnlock(x, y))
+
+Thread(T.y.z) = callLock.L.y.T.y.z -> LockTree(T.y.z, L.y); 
+                              UnlockTree(T.y.z, L.0); 
+                              Thread(T.y.z)
+            [] end.T.y.z -> SKIP
+
+
+nextUnlock(x, y) = if (y / 2 > x) then nextUnlock(x, y/2)
+                   else L.y 

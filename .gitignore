@@ -6,3 +6,5 @@ paper/*.aux.fdb_latexmk
 paper/*.aux.log
 paper/*.aux.fls
 paper/*.aux.out
+
+SCL-CSP-analysis/

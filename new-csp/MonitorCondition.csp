@@ -1,0 +1,145 @@
+module MonitorCondition
+
+  include "Macros.csp"
+
+  -- Events for monitor actions
+  channel acquire, release: ThreadID
+  channel await, timedAwait: ThreadID . ConditionID
+  -- channel signal: ThreadID . ConditionID . ThreadID -- exported
+  channel signalAll: ThreadID . ConditionID
+  -- timeout from a timed wait
+  channel timeout: ThreadID . ConditionID  
+
+  -- We use a map waitingMap :: (| ConditionID => {ThreadID} |) to record those
+  -- threads waiting on each Condition.
+  -- We use a map timedWaitingMap :: (| ConditionID => {ThreadID} |) to recor
+  -- those threads doing a timed await on each Condition.
+
+  -- The initial waitingMap.
+  initialMap = mapFromList(< (c,{}) | c <- seq(ConditionID) >) 
+
+  -- Add that t is waiting on c.
+  addToMap(map, c, t) = mapUpdate(map, c, union(mapLookup(map, c), {t}))
+
+  -- Record that t is no longer waiting on c  
+  removeFromMap(map, c, t) = mapUpdate(map, c, diff(mapLookup(map, c), {t}))
+
+  -- Either ts, or {t} if the former is empty. 
+  addIfEmpty(t, ts) = if empty(ts) then {t} else ts
+
+  -- All threads waiting on any condition. 
+  range(waitingMap) = Union({mapLookup(waitingMap, c) | c <- ConditionID})  
+
+-- IMPROVE: allow await/signal by non locking thread, but diverge.
+
+  -- The monitor in the unlocked state.  waitingMap records those threads
+  -- waiting on each Condition.  timedWaitingMap records those threads doing a
+  -- timed wait on each condition.  Invariant: elements in range are disjoint.
+  Unlocked :: 
+    ((| ConditionID=>{ThreadID} |), (| ConditionID=>{ThreadID} |)) -> Proc 
+  Unlocked(waitingMap, timedWaitingMap) =
+    let allWaiters = union(range(waitingMap), range(timedWaitingMap)) within
+    -- Note: we don't allow waiting threads to acquire the lock. 
+    acquire?t:diff(ThreadID, allWaiters) -> 
+      Locked(t, waitingMap, timedWaitingMap)
+    -- A waiting thread wakes up and immediately acquires the lock.  Note that
+    -- this event really represents the acquiring of the lock. 
+    [] c: ConditionID @ 
+      let timedWaiters = mapLookup(timedWaitingMap,c) within
+      timeout?t:timedWaiters!c ->
+        Locked(t, waitingMap, removeFromMap(timedWaitingMap, c, t))
+
+  -- The monitor locked by t.
+  Locked :: 
+    (ThreadID, (| ConditionID=>{ThreadID} |), (| ConditionID=>{ThreadID} |))
+    -> Proc 
+  Locked(t, waitingMap, timedWaitingMap) = 
+    release.t -> Unlocked(waitingMap, timedWaitingMap)
+    []
+    await.t?c ->  Unlocked(addToMap(waitingMap, c, t), timedWaitingMap)
+    -- await?t'?c -> (
+    --   if t' == t then  Unlocked(addToMap(waitingMap, c, t), timedWaitingMap)
+    --   else DIV
+    -- )
+    [] 
+    timedAwait.t?c -> Unlocked(waitingMap, addToMap(timedWaitingMap, c, t))
+    []
+    ([] c: ConditionID @
+      let waiters = mapLookup(waitingMap,c) within
+      let timedWaiters = mapLookup(timedWaitingMap,c) within
+      signal.t.c?t':waiters -> 
+        Locked(t, removeFromMap(waitingMap, c, t'), timedWaitingMap)
+      []
+      signal.t.c?t':timedWaiters -> 
+        Locked(t, waitingMap, removeFromMap(timedWaitingMap, c, t'))
+      []
+      -- Avoid blocking signals if no thread waiting
+      empty(waiters) and empty(timedWaiters) & 
+        signal.t.c.t -> Locked(t, waitingMap, timedWaitingMap)
+    )
+    []
+    signalAll.t?c -> 
+      Locked(t, mapUpdate(waitingMap, c, {}), mapUpdate(timedWaitingMap, c, {}))
+
+exports
+  channel signal: ThreadID . ConditionID . ThreadID
+
+  events = 
+    {| acquire, release, await, signal, signalAll, timedAwait, timeout |}
+
+  runWith(P) = P [| events |] Unlocked(initialMap, initialMap)
+
+  runWithAndHide(P) = runWith(P) \ events
+
+  -- Interface to threads.
+
+  -- Lock the monitor
+  Lock(t) = acquire.t -> SKIP
+  
+  -- Unlock the monitor
+  Unlock(t) = release.t -> SKIP
+
+  -- Perform P under mutual exclusion
+  Mutex(t, P) = Lock(t); P; Unlock(t)
+
+  -- Perform P under mutual exclusion, and apply cond to the result. 
+  MutexC :: (ThreadID, ((a) -> Proc) -> Proc, (a) -> Proc) -> Proc
+  MutexC(t, P, cond) = Lock(t); P(\ x @ Unlock(t); cond(x))
+
+  -- Perform an await() on c, and then regain the lock.
+  Await(t,c) = await.t.c -> acquire.t -> SKIP 
+
+  -- Perform an await(test) on c.  test(cont) should model calculating test
+  -- and applying cont to the result.
+  AwaitTest :: (ThreadID, ConditionID, ((Bool) -> Proc) -> Proc) -> Proc
+  AwaitTest(t, c, test) = While(Negate(test), Await(t,c))
+
+  -- Do a timed await(delay) on c.  Apply cond to the boolean that indicates
+  -- if a signal was received.
+  TimedAwait :: (ThreadID, ConditionID, (Bool) -> Proc) -> Proc
+  TimedAwait(t, c, cond) = 
+    timedAwait.t.c -> 
+    -- Note: the former case corresponds to t receiving a signal and
+    -- subsequently acquiring the lock; the latter case corresponds to it
+    -- timing out and acquiring the lock.
+    (acquire.t -> cond(true) [] timeout.t.c -> cond(false))
+
+  -- Do a timed await(nanos, test) on c.  Apply cond to the resulting boolean,
+  -- which will be true if test gives true.
+  TimedAwaitTest ::
+    (ThreadID, ConditionID, ((Bool) -> Proc) -> Proc, (Bool) -> Proc) -> Proc 
+  TimedAwaitTest(t, c, test, cont) = 
+    let -- If test gives true, return true; otherwise either wait or return
+        -- false
+        DoTest = test(\b @ if b then cont(b) else (DoWait |~| cont(false)))
+        -- Wait, and then do the test again; if didn't timeout, maybe wait again
+        DoWait = TimedAwait(t, c, \sig @ if sig then DoTest else test(cont))
+    within DoTest
+
+  -- perform a signal()
+  Signal(t,c) = signal.t.c?t' -> SKIP
+
+  -- perform a signallAll()
+  SignalAll(t,c) = signalAll.t.c -> SKIP
+
+endmodule

@@ -47,11 +47,11 @@ AllThreads = ||| t : ThreadID @ Thread(t)
 ActualSystem = (AllThreads [|InternalChannels|] State)
 -- Rename lock acquisition and releasing and hide internal events
 ActualSystemR = (ActualSystem 
-                  [[getAndSet.t.False.True <- lockObtained.L.0.t, 
-                  set.t.False <- lockUnlocked.L.0.t | t <- ThreadID]])
+                  [[getAndSet.t.False.True <- lockAcquired.L.0.t, 
+                  set.t.False <- lockReleased.L.0.t | t <- ThreadID]])
 ActualSystemRExtDiv = ActualSystemR \ InternalChannels
 
-ActualSystemRNoDiv = ActualSystemR [|{getAndSet.t.True.True| t <- ThreadID}|] STOP
+ActualSystemRNoDiv = (ActualSystemR [|{getAndSet.t.True.True| t <- ThreadID}|] STOP) \InternalChannels
 
 
 -- Should pass as no 'internal' events
@@ -89,3 +89,12 @@ assert (ActualSystem [|{|getAndSet, get|}|] CheckNoDiv)
 
 assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemRExtDiv
 assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)
+
+channel ended: ThreadID
+StarveFree = callLock.L.0.T.0 -> lockAcquired.L.0.T.0 -> StarveFree
+assert (ActualSystemRNoDiv [|{callLock.L.0.T.0, lockAcquired.L.0.T.0}|] StarveFree) \diff(LockEndEvents, {callLock.L.0.T.0, lockAcquired.L.0.T.0}):[divergence free]
+assert (ActualSystemRNoDiv [|{callLock.L.0.T.0, lockAcquired.L.0.T.0}|] StarveFree) \ diff(LockEvents, {callLock.L.0.T.0, lockAcquired.L.0.T.0}):[divergence free]
+StarveFree2 = callLock.L.0.T.0 -> lockAcquired.L.0.T.0 -> StarveFree
+              |~| end.T.0 -> Out
+Out = ended!T.0 -> Out
+assert (ActualSystemRNoDiv [|{callLock.L.0.T.0, lockAcquired.L.0.T.0, end.T.0}|] StarveFree2) \diff(LockEndEvents, {callLock.L.0.T.0, lockAcquired.L.0.T.0}):[divergence free]

@@ -1,37 +1,38 @@
 channel callLock: LockID.ThreadID
-channel lockObtained: LockID.ThreadID
+channel lockAcquired: LockID.ThreadID
 channel lockNotObtained: LockID.ThreadID
-channel lockUnlocked: LockID.ThreadID
+channel lockReleased: LockID.ThreadID
 channel end: ThreadID
 
-LockEvents = {|callLock, lockObtained, lockNotObtained, lockUnlocked|}
+LockEvents = {|callLock, lockAcquired, lockNotObtained, lockReleased|}
 LockEndEvents = union(LockEvents, {|end|})
-LockChans = {callLock, lockObtained, lockNotObtained, lockUnlocked}
+LockChans = {callLock, lockAcquired, lockNotObtained, lockReleased}
 
 -- LockSpec is a trace specification for a non-starvation-free lock
 LockSpec :: (LockID, {ThreadID}, {ThreadID}) -> Proc
 LockSpec(l, ts, TS) = end?t:diff(TS, ts) -> LockSpec(l, ts, diff(TS, {t}))
                       [] callLock.l?t:(diff(TS, ts)) -> LockSpec(l, union(ts, {t}), TS)
-                      [] lockObtained.l?t:ts -> LockSpecObtained(t, l, ts, TS)
+                      [] lockAcquired.l?t:ts -> LockSpecObtained(t, l, ts, TS)
 LockSpecObtained(t, l, ts, TS) = end?t2:diff(TS, union(ts, {t})) -> LockSpecObtained(t, l, ts, diff(TS, {t2}))
                                [] callLock.l?t2:(diff(TS, union(ts, {t}))) -> LockSpecObtained(t, l, union(ts, {t2}), TS)
-                               [] lockUnlocked.l.t -> LockSpec(l, diff(ts, {t}), TS)
+                               [] lockReleased.l.t -> LockSpec(l, diff(ts, {t}), TS)
 
 -- These are used to check mutual exclusion on any lock implementation
 -- CheckMutualExclusion(l) should trace refine any lock l with only the
 -- OnlyRootObtain(l, ts) events visible
-CheckMutualExclusion(l) = lockObtained.l?t:ThreadID -> lockUnlocked.l.t -> CheckMutualExclusion(l)
+CheckMutualExclusion(l) = lockAcquired.l?t:ThreadID -> lockReleased.l.t -> CheckMutualExclusion(l)
 OnlyRootObtain(l, ts) = diff(LockEndEvents, 
-                             {lockObtained.l.t, lockUnlocked.l.t | t <- ts})
+                             {lockAcquired.l.t, lockReleased.l.t | t <- ts})
 
 -- This tests the lock property of deadlock-freeness
 -- Actual test is assert AcquireLock(L.0, {}, ThreadID) [F=
 --          ActualSystemRExtDiv \ AcquireLockChans(L.0, ThreadID)
 AcquireLock :: (LockID, {ThreadID}, {ThreadID}) -> Proc
-AcquireLock(l, {}, TS) = end?t:TS -> AcquireLock(l, {}, diff(TS, {t}))
-                         [] callLock.l?t:TS -> AcquireLock(l, {t}, TS)
 AcquireLock(l, ts, TS) = end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t})) 
                          [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
-                         [] lockObtained.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
+                         [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
 AcquireLockChans(l, ts) = diff(LockEvents, 
-                        {callLock.l.t, lockObtained.l.t | t <- ts})
+                        {callLock.l.t, lockAcquired.l.t | t <- ts})
+
+
+-- Starvation freedom

@@ -11,6 +11,8 @@
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{mathtools, amssymb, amsthm}
+\usepackage{float}
 
 \usepackage{tikz}
 \usetikzlibrary{arrows}
@@ -76,14 +78,15 @@
  columns=flexible,
  basicstyle={\small\ttfamily},
  numbers=left,
- backgroundcolor=\color{gray!20},
+ %backgroundcolor=\color{gray!20},
  numberstyle=\tiny\color{gray},
  keywordstyle=\color{blue},
  commentstyle=\color{dkgreen},
  stringstyle=\color{mauve},
  breaklines=true,
  breakatwhitespace=true,
- tabsize=3
+ tabsize=3,
+ moredelim=**[is][\color{red}]{_}{_}
 }
 
 
@@ -108,7 +111,10 @@
 %  \listoftables
 %  \pagebreak
 
- \input{locks}
+  \input{intro}
+ %\input{locks}
+ %\input{monitor.tex}
+ %\input{barrier.tex}
 
   %\begin{enumerate}
   %  \item \textbf{Action on Objectives:} The attacker now begins to achieve their initial objectives making use of the system access they have achieved. These objectives can include anything from data exfiltration to ransomware attacks to damage to physical systems.
@@ -137,6 +143,29 @@
   %    \hline
   %  \end{tabularx}
   %\end{table}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 
 
   \Urlmuskip=0mu plus 1mu

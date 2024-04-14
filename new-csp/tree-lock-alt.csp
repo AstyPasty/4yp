@@ -1,0 +1,109 @@
+include "variable.csp"
+include "lock-spec.csp"
+
+-- We will use *_SPIN to represent types/sets/values to be used in the 
+--   implementation of the tree using TTAS locks at each node
+-- Likewise *_SPEC is used with the tree lock using the LockSpec
+-- As shown in the spin-lock file, the two locks are equivalent under 
+-- the traces model, hence it is valid to substitute the LockSpec for 
+-- the TTAS lock under traces and significantly more computationally 
+-- efficient
+
+NTHREADS_SPIN = 4 
+NTHREADS_SPEC = 4
+NLOCKS_SPIN = NTHREADS_SPIN - 1
+NLOCKS_SPEC = NTHREADS_SPEC - 1
+
+datatype LockID = L.(union({0..NLOCKS_SPIN-1}, {0..NLOCKS_SPEC-1}))
+subtype Lock_SPIN = L.{0..NLOCKS_SPIN-1}
+subtype Lock_SPEC = L.{0..NLOCKS_SPEC-1}
+datatype ThreadID = T.(union({0..NTHREADS_SPIN-1}, {0..NLOCKS_SPEC-1})).{0..1}
+subtype Thread_SPIN = T.{0..NTHREADS_SPIN-1}.{0..1}
+subtype Thread_SPEC = T.{(NLOCKS_SPEC-1)/2..NLOCKS_SPEC-1}.{0..1}
+datatype Index = I.{0..2}
+
+
+
+channel getAndSet: LockID.Index.ThreadID.Bool.Bool
+channel get: LockID.Index.ThreadID.Bool
+channel set: LockID.Index.ThreadID.Bool
+InternalChannels = {|get, set, getAndSet|}
+
+-- Array of variables with index Lock_SPIN
+LocksSpin = Array({l.i | l <- Lock_SPIN, i <- Index}, false, get, set, getAndSet)
+
+Lock :: (ThreadID, LockID) -> Proc
+
+Lock(T.x.y, l) = if y == 1 then set.l.I.y.T.x.y.True -> set.l.I.2.T.x.y.True -> WhileLock(T.x.y, l)
+            else if y == 0 then set.l.I.y.T.x.y.True -> set.l.I.2.T.x.y.False -> WhileLock(T.x.y, l)
+            else DIV
+WhileLock :: (ThreadID, LockID) -> Proc
+WhileLock(T.x.y, l) = get.l.I.(1-y).T.x.y?v -> if v == False then SKIP -- Hold lock
+                                  else get.l.I.2.T.x.y?z ->
+                                    if y == 1 and z == True then WhileLock(T.x.y, l)
+                                    else if y == 0 and z == False then WhileLock(T.x.y, l)
+                                    else SKIP
+
+
+Unlock(T.x.y, l) = set.l.I.y.T.x.y.False -> SKIP
+
+LockTree(t, L.0) = SKIP
+LockTree(T.y.z, L.x) = Lock(T.y.z, L.x); LockTree(T.y.(nextSide(x)), L.((x-1)/2))
+
+UnlockTree(T.y.z, L.x) = if (x==0) then Unlock(T.y.z, L.x); SKIP
+                         else Unlock(T.y.z, L.y); 
+                              UnlockTree(T.y.z, nextUnlock(x, y))
+
+Thread(T.y.z) = callLock.L.(1+(y/2)).T.y.z -> LockTree(T.y.z, L.(1+(y/2))); 
+                              UnlockTree(T.y.z, L.0); 
+                              Thread(T.y.(y%2))
+            --[] end.T.y.z -> SKIP
+
+
+nextUnlock(x, y) = if (y / 2 > x) then nextUnlock(x, y/2)
+                   else L.y 
+
+nextSide(x) = if (x/2 == (x-1) /2) then 0 else 1
+
+AllThreads = ||| x : {0..NTHREADS_SPIN -1} @ Thread(T.x.(x%2))
+-- Sychronise the threads with all the locks
+TreeSystemSpinInt = (AllThreads [|InternalChannels|] LocksSpin)
+-- Rename lock acquisition and releasing to the external lock events
+TreeSystemSpinLockEvents = 
+  TreeSystemSpinInt [[get.l.I.(1-y).T.x.y.False <- lockAcquired.l.T.x.y,
+                      set.l.I.y.T.x.y.False <- lockReleased.l.T.x.y
+                       | x <- {0..NLOCKS_SPIN-1}, y <- {0..1}, l <- Lock_SPIN]]
+  
+  --[[getAndSet.l.t.False.True <- lockAcquired.l.t, 
+                    --  set.l.t.False <- lockReleased.l.t 
+                    --    | t <- ThreadID, l <- Lock_SPIN]] 
+-- Hide internal events (this will diverge)
+TreeSystemSpinExtDiv = TreeSystemSpinLockEvents \ InternalChannels
+-- Block events that cause divergence and then hide internal events
+TreeSystemSpinNoDiv = (TreeSystemSpinLockEvents 
+                        [|{get.l.I.2.T.x.1.True,
+                           get.l.I.2.T.x.0.False
+                            | x <- {0..NLOCKS_SPIN-1}, y <- {0..1}, l <- Lock_SPIN}|] STOP) 
+                              \ InternalChannels
+
+                         --      get.l.I.1.T.x.0.True,
+                         --   get.l.I.0.T.x.1.True,
+
+assert TreeSystemSpinInt :[divergence free]
+assert TreeSystemSpinInt :[deadlock free]
+assert TreeSystemSpinExtDiv :[divergence free] -- Should fail
+assert TreeSystemSpinNoDiv :[divergence free]
+
+-- Show trace equivalence between the two external lock events systems 
+assert TreeSystemSpinExtDiv [T= TreeSystemSpinNoDiv
+assert TreeSystemSpinNoDiv [T= TreeSystemSpinExtDiv
+
+-- CheckAlwaysAvailable and TreeSystemSpinNoDiv are equivalent under traces
+-- Root lock never becomes unavailable and ownership of the root lock is mutually exclusive
+-- Ie. shows mutual-exclusion and deadlock-freedom for the root lock
+CheckAlwaysAvailable = lockAcquired.L.0?t:Thread_SPIN -> 
+                         lockReleased.L.0.t -> CheckAlwaysAvailable
+assert (TreeSystemSpinNoDiv \ diff(LockEvents, OnlyRootObtain(L.0, Thread_SPIN)) )
+         [T= CheckAlwaysAvailable
+assert CheckAlwaysAvailable [T= 
+         TreeSystemSpinNoDiv \ diff(LockEvents, OnlyRootObtain(L.0, Thread_SPIN)) 

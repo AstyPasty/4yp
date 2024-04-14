@@ -1,10 +1,15 @@
 -- Processes representing variables and arrays of variables
 
 -- An atomic variable with value value, and get, set and getAndSet operations
-Var(value, get, set, gAS) = 
-  get?_!value -> Var(value, get, set, gAS)
-  [] set?_?value' -> Var(value', get, set, gAS)
-  [] gAS?_!value?value' -> Var(value', get, set, gAS) 
+AtomicVar(value, get, set, gAS) = 
+  get?_!value -> AtomicVar(value, get, set, gAS)
+  [] set?_?value' -> AtomicVar(value', get, set, gAS)
+  [] gAS?_!value?value' -> AtomicVar(value', get, set, gAS) 
+
+-- An variable with value value, and get and set operations
+Var(value, get, set) = 
+  get?_!value -> Var(value, get, set)
+  [] set?_?value' -> Var(value', get, set)
 
 -- An AtomicInteger with the above operations, a getAndIncrement operation
 -- and lower and upper bounds to support the getAndIncrement operation
@@ -17,10 +22,16 @@ IntVar(value, g, s, gAS, gAI, l, u) =
 
 -- An array of |Ind| variables as defined in Var all initially set to init
 -- Indexed on values in Ind
-Array(Ind, init, get, set, gAS) = 
+AtomicArray(Ind, init, getA, setA, gASA) = 
   let Entry(index, value) = 
-        get!index?_!value -> Entry(index, value)
-        [] set!index?_?value' -> Entry(index, value')
-        [] gAS!index?_!value?value' -> Entry(index, value')
+        getA!index?_!value -> Entry(index, value)
+        [] setA!index?_?value' -> Entry(index, value')
+        [] gASA!index?_!value?value' -> Entry(index, value')
   within ||| index : Ind @ Entry(index, init)
 
+
+Array(Ind, init, getA, setA) = 
+  let Entry(index, value) = 
+        getA!index?_!value -> Entry(index, value)
+        [] setA!index?_?value' -> Entry(index, value')
+  within ||| index : Ind @ Entry(index, init)

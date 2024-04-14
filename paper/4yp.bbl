@@ -19,39 +19,96 @@
 
 \refsection{0}
   \datalist[entry]{nty/global//global/global}
-    \entry{TAoMP}{book}{}
-      \name{author}{2}{}{%
-        {{hash=dec3948f0497f5447bae5c2365b87e8f}{%
-           family={Herlihy},
-           familyi={H\bibinitperiod},
-           given={Maurice},
-           giveni={M\bibinitperiod}}}%
-        {{hash=3e2aee6574e3dcbdbc582166218008cb}{%
-           family={Shavit},
-           familyi={S\bibinitperiod},
-           given={Nir},
-           giveni={N\bibinitperiod}}}%
+    \entry{Flight501Failure}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=7bda02b6aaa6255c1d769a4aa5a6ac96}{%
+           family={Board},
+           familyi={B\bibinitperiod},
+           given={Independent\bibnamedelima Inquiry},
+           giveni={I\bibinitperiod\bibinitdelim I\bibinitperiod}}}%
       }
-      \list{location}{1}{%
-        {San Francisco, CA, USA}%
-      }
-      \list{publisher}{1}{%
-        {Morgan Kaufmann Publishers Inc.}%
-      }
-      \strng{namehash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \strng{fullhash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \strng{bibnamehash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \strng{authorbibnamehash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \strng{authornamehash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \strng{authorfullhash}{7d85b068d0a7584e6818b95a7c1976f6}
-      \field{sortinit}{H}
-      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \strng{namehash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \strng{fullhash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \strng{bibnamehash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \strng{authorbibnamehash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \strng{authornamehash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \strng{authorfullhash}{7bda02b6aaa6255c1d769a4aa5a6ac96}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
-      \field{edition}{1st}
-      \field{isbn}{9780123973375}
-      \field{title}{The Art of Multiprocessor Programming, Revised Reprint}
-      \field{year}{2012}
+      \field{howpublished}{Report}
+      \field{title}{ARIANE 5: Flight 501 Failure}
+      \field{year}{1996}
+      \verb{urlraw}
+      \verb http://sunnyday.mit.edu/nasa-class/Ariane5-report.html
+      \endverb
+      \verb{url}
+      \verb http://sunnyday.mit.edu/nasa-class/Ariane5-report.html
+      \endverb
+    \endentry
+    \entry{MicroTest}{misc}{}
+      \name{author}{2}{}{%
+        {{hash=1a2c48ad2ee476e0338db6caa11c6f85}{%
+           family={Laurie\bibnamedelima Williams},
+           familyi={L\bibinitperiod\bibinitdelim W\bibinitperiod},
+           given={Gunnar\bibnamedelima Kudrjavets},
+           giveni={G\bibinitperiod\bibinitdelim K\bibinitperiod}}}%
+        {{hash=6ba3a35650ec296ab02f441c92f91724}{%
+           family={Nagappan},
+           familyi={N\bibinitperiod},
+           given={Nachiappan},
+           giveni={N\bibinitperiod}}}%
+      }
+      \strng{namehash}{7b28e5062961a5ab54f3898e060fb515}
+      \strng{fullhash}{7b28e5062961a5ab54f3898e060fb515}
+      \strng{bibnamehash}{7b28e5062961a5ab54f3898e060fb515}
+      \strng{authorbibnamehash}{7b28e5062961a5ab54f3898e060fb515}
+      \strng{authornamehash}{7b28e5062961a5ab54f3898e060fb515}
+      \strng{authorfullhash}{7b28e5062961a5ab54f3898e060fb515}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{On the Effectiveness of Unit Test Automation at Microsoft}
+      \verb{urlraw}
+      \verb https://collaboration.csc.ncsu.edu/laurie/Papers/Unit_testing_cameraReady.pdf
+      \endverb
+      \verb{url}
+      \verb https://collaboration.csc.ncsu.edu/laurie/Papers/Unit_testing_cameraReady.pdf
+      \endverb
+    \endentry
+    \entry{LoweLin}{article}{}
+      \name{author}{1}{}{%
+        {{hash=a46a2ef79b7f4a44a02a8be45d39e2a2}{%
+           family={Lowe},
+           familyi={L\bibinitperiod},
+           given={Gavin},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{fullhash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{bibnamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authorbibnamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authornamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authorfullhash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Concurrency and Computation: Practice and Experience}
+      \field{number}{4}
+      \field{title}{Testing for linearizability}
+      \field{volume}{29}
+      \field{year}{2017}
+      \field{pages}{e3928}
+      \range{pages}{-1}
+      \verb{urlraw}
+      \verb https://onlinelibrary.wiley.com/doi/abs/10.1002/cpe.3928
+      \endverb
+      \verb{url}
+      \verb https://onlinelibrary.wiley.com/doi/abs/10.1002/cpe.3928
+      \endverb
     \endentry
   \enddatalist
 \endrefsection

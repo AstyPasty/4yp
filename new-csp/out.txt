@@ -1,0 +1,973 @@
+Welcome to FDR Version 4.2.7 copyright 2016 Oxford University Innovation Ltd. All Rights Reserved.
+License: Academic license for non-commercial use only
+TreeSystemSpinInt :[divergence free]:
+    Log:
+            Found 530 processes including 33 names
+        Visited 497 processes and discovered 30 recursive names
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 1 transitions
+        Constructed 10 states with 14 transitions
+        Visited 3 processes generating 16 machines
+        Constructed 10 states with 14 transitions
+        Constructed 1 of 18 machines
+        Constructed 10 states with 14 transitions
+        Constructed 2 of 18 machines
+        Constructed 0 states with 30 transitions
+        Constructed 0 states with 30 transitions
+        Constructed 10 states with 14 transitions
+        Constructed 2 states with 60 transitions
+        Constructed 3 of 18 machines
+        Constructed 2 states with 60 transitions
+        Constructed 4 of 18 machines
+        Reduced 10 states to 10 equivalence classes
+        Constructed 0 states with 30 transitions
+        Reduced 10 states to 10 equivalence classes
+        Reduced 10 states to 10 equivalence classes
+        Constructed 5 of 18 machines
+        Reduced 10 states to 10 equivalence classes
+        Constructed 6 of 18 machines
+        Constructed 2 states with 60 transitions
+        Constructed 7 of 18 machines
+        Constructed 8 of 18 machines
+        Reduced 2 states to 2 equivalence classes
+        Reduced 2 states to 2 equivalence classes
+        Constructed 9 of 18 machines
+        Constructed 10 of 18 machines
+        Constructed 11 of 18 machines
+        Constructed 12 of 18 machines
+        Constructed 13 of 18 machines
+        Reduced 2 states to 2 equivalence classes
+        Constructed 14 of 18 machines
+        Constructed 15 of 18 machines
+        Constructed 16 of 18 machines
+        Constructed 17 of 18 machines
+        Constructed 18 of 24 machines
+        Constructed 19 of 24 machines
+        Constructed 20 of 25 machines
+        Constructed 21 of 25 machines
+        Constructed 22 of 25 machines
+        Constructed 23 of 25 machines
+        Constructed 24 of 25 machines
+        Constructed 25 of 25 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.003 seconds at 1666.67 state pairs and 7000 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.007 seconds at 2142.86 state pairs and 8714.29 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.009 seconds at 3888.89 state pairs and 15666.7 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.011 seconds at 6363.64 state pairs and 25545.5 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.013 seconds at 9692.31 state pairs and 38846.2 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.015 seconds at 14133.3 state pairs and 56333.3 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.018 seconds at 18666.7 state pairs and 73833.3 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 501 state pairs and 1965 transitions in 0.019 seconds at 26368.4 state pairs and 103421 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 705 state pairs and 2741 transitions in 0.022 seconds at 32045.5 state pairs and 124591 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 941 state pairs and 3625 transitions in 0.024 seconds at 39208.3 state pairs and 151042 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1201 state pairs and 4581 transitions in 0.026 seconds at 46192.3 state pairs and 176192 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1481 state pairs and 5577 transitions in 0.029 seconds at 51069 state pairs and 192310 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1777 state pairs and 6589 transitions in 0.03 seconds at 59233.3 state pairs and 219633 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2073 state pairs and 7561 transitions in 0.032 seconds at 64781.2 state pairs and 236281 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2357 state pairs and 8445 transitions in 0.034 seconds at 69323.5 state pairs and 248382 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 2617 state pairs and 9209 transitions in 0.036 seconds at 72694.4 state pairs and 255806 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 2853 state pairs and 9865 transitions in 0.038 seconds at 75078.9 state pairs and 259605 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 3073 state pairs and 10449 transitions in 0.04 seconds at 76825 state pairs and 261225 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 3281 state pairs and 10989 transitions in 0.042 seconds at 78119 state pairs and 261643 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 3465 state pairs and 11457 transitions in 0.043 seconds at 80581.4 state pairs and 266442 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 3613 state pairs and 11817 transitions in 0.045 seconds at 80288.9 state pairs and 262600 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 3721 state pairs and 12057 transitions in 0.047 seconds at 79170.2 state pairs and 256532 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 3785 state pairs and 12185 transitions in 0.049 seconds at 77244.9 state pairs and 248673 transitions per second using 3.22GB total storage.
+        On ply 26 - visited 3821 state pairs and 12249 transitions in 0.051 seconds at 74921.6 state pairs and 240176 transitions per second using 3.22GB total storage.
+        On ply 27 - visited 3837 state pairs and 12273 transitions in 0.052 seconds at 73788.5 state pairs and 236019 transitions per second using 3.22GB total storage.
+        On ply 28 - visited 3841 state pairs and 12281 transitions in 0.054 seconds at 71129.6 state pairs and 227426 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 3,841
+        Visited Transitions: 12,281
+        Visited Plys: 27
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinInt :[deadlock free]:
+    Log:
+            Found 1 processes including 1 names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 0 processes generating 0 machines
+        Constructed 1 of 2 machines
+        Constructed 2 of 2 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.008 seconds at 8750 state pairs and 35125 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.01 seconds at 12600 state pairs and 50500 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.013 seconds at 16307.7 state pairs and 65000 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.015 seconds at 22400 state pairs and 88600 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 501 state pairs and 1965 transitions in 0.017 seconds at 29470.6 state pairs and 115588 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 705 state pairs and 2741 transitions in 0.019 seconds at 37105.3 state pairs and 144263 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 941 state pairs and 3625 transitions in 0.022 seconds at 42772.7 state pairs and 164773 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1201 state pairs and 4581 transitions in 0.023 seconds at 52217.4 state pairs and 199174 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1481 state pairs and 5577 transitions in 0.025 seconds at 59240 state pairs and 223080 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1777 state pairs and 6589 transitions in 0.027 seconds at 65814.8 state pairs and 244037 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2073 state pairs and 7561 transitions in 0.03 seconds at 69100 state pairs and 252033 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2357 state pairs and 8445 transitions in 0.031 seconds at 76032.3 state pairs and 272419 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 2617 state pairs and 9209 transitions in 0.033 seconds at 79303 state pairs and 279061 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 2853 state pairs and 9865 transitions in 0.036 seconds at 79250 state pairs and 274028 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 3073 state pairs and 10449 transitions in 0.037 seconds at 83054.1 state pairs and 282405 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 3281 state pairs and 10989 transitions in 0.039 seconds at 84128.2 state pairs and 281769 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 3465 state pairs and 11457 transitions in 0.041 seconds at 84512.2 state pairs and 279439 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 3613 state pairs and 11817 transitions in 0.042 seconds at 86023.8 state pairs and 281357 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 3721 state pairs and 12057 transitions in 0.044 seconds at 84568.2 state pairs and 274023 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 3785 state pairs and 12185 transitions in 0.046 seconds at 82282.6 state pairs and 264891 transitions per second using 3.22GB total storage.
+        On ply 26 - visited 3821 state pairs and 12249 transitions in 0.047 seconds at 81297.9 state pairs and 260617 transitions per second using 3.22GB total storage.
+        On ply 27 - visited 3837 state pairs and 12273 transitions in 0.049 seconds at 78306.1 state pairs and 250469 transitions per second using 3.22GB total storage.
+        On ply 28 - visited 3841 state pairs and 12281 transitions in 0.051 seconds at 75313.7 state pairs and 240804 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 3,841
+        Visited Transitions: 12,281
+        Visited Plys: 27
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinExtDiv :[divergence free]:
+    Log:
+            Found 4 processes including 2 names
+        Visited 2 processes and discovered 0 recursive names
+        Visited 2 processes generating 2 machines
+        Constructed 1 of 2 machines
+        Constructed 2 of 4 machines
+        Constructed 3 of 4 machines
+        Constructed 4 of 10 machines
+        Constructed 5 of 11 machines
+        Constructed 6 of 11 machines
+        Constructed 7 of 11 machines
+        Constructed 8 of 11 machines
+        Constructed 9 of 11 machines
+        Constructed 10 of 11 machines
+        Constructed 11 of 11 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [31mFailed[m
+        Visited States: 70
+        Visited Transitions: 265
+        Visited Plys: 4
+        Estimated Total Storage: 2.15GB
+        Counterexample (Divergence Counterexample)
+            Machine Debug:
+                TreeSystemSpinExtDiv (Repeat Behaviour):
+                    Trace: <callLock.L.1.T.1.2, τ, callLock.L.1.T.1.1, 
+                    lockAcquired.L.1.T.1.2>
+                    Repeats the trace: <τ>
+TreeSystemSpinNoDiv :[divergence free]:
+    Log:
+            Found 9 processes including 3 names
+        Visited 6 processes and discovered 0 recursive names
+        Constructed 1 of 2 machines
+        Constructed 0 states with 36 transitions
+        Constructed 2 states with 36 transitions
+        Visited 2 processes generating 4 machines
+        Constructed 2 of 4 machines
+        Reduced 2 states to 2 equivalence classes
+        Constructed 3 of 6 machines
+        Constructed 4 of 6 machines
+        Constructed 5 of 6 machines
+        Constructed 6 of 13 machines
+        Constructed 7 of 13 machines
+        Constructed 8 of 13 machines
+        Constructed 9 of 13 machines
+        Constructed 10 of 13 machines
+        Constructed 11 of 14 machines
+        Constructed 12 of 14 machines
+        Constructed 13 of 14 machines
+        Constructed 14 of 14 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 17 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 6 state pairs and 85 transitions in 0.002 seconds at 3000 state pairs and 42500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 20 state pairs and 261 transitions in 0.004 seconds at 5000 state pairs and 65250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 50 state pairs and 621 transitions in 0.006 seconds at 8333.33 state pairs and 103500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 105 state pairs and 1261 transitions in 0.008 seconds at 13125 state pairs and 157625 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 196 state pairs and 2293 transitions in 0.01 seconds at 19600 state pairs and 229300 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 338 state pairs and 3825 transitions in 0.012 seconds at 28166.7 state pairs and 318750 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 544 state pairs and 5945 transitions in 0.014 seconds at 38857.1 state pairs and 424643 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 821 state pairs and 8657 transitions in 0.016 seconds at 51312.5 state pairs and 541062 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 1166 state pairs and 11865 transitions in 0.019 seconds at 61368.4 state pairs and 624474 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 1566 state pairs and 15369 transitions in 0.021 seconds at 74571.4 state pairs and 731857 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 2002 state pairs and 18933 transitions in 0.023 seconds at 87043.5 state pairs and 823174 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 2454 state pairs and 22277 transitions in 0.025 seconds at 98160 state pairs and 891080 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 2902 state pairs and 25153 transitions in 0.027 seconds at 107481 state pairs and 931593 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 3318 state pairs and 27393 transitions in 0.029 seconds at 114414 state pairs and 944586 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 3666 state pairs and 29009 transitions in 0.031 seconds at 118258 state pairs and 935774 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 3938 state pairs and 30097 transitions in 0.032 seconds at 123062 state pairs and 940531 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 4142 state pairs and 30781 transitions in 0.034 seconds at 121824 state pairs and 905324 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 4306 state pairs and 31201 transitions in 0.036 seconds at 119611 state pairs and 866694 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 4442 state pairs and 31489 transitions in 0.038 seconds at 116895 state pairs and 828658 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 4550 state pairs and 31689 transitions in 0.039 seconds at 116667 state pairs and 812538 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 4622 state pairs and 31801 transitions in 0.041 seconds at 112732 state pairs and 775634 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 4654 state pairs and 31841 transitions in 0.043 seconds at 108233 state pairs and 740488 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 4662 state pairs and 31849 transitions in 0.045 seconds at 103600 state pairs and 707756 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 4,662
+        Visited Transitions: 31,849
+        Visited Plys: 24
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinExtDiv [T= TreeSystemSpinNoDiv:
+    Log:
+            Found 1 processes including 1 names
+        Found 1 processes including 1 names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 1 processes generating 2 machines
+        Constructed 1 of 2 machines
+        Visited 0 processes generating 3 machines
+        Constructed 2 of 3 machines
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Enumerated to 3841 states and 12088 transitions
+        Constructed 0 states
+        Constructed 1000 states
+        Normalised to 1372 states
+        Constructed 376 equivalence classes
+        Constructed 384 equivalence classes
+        Constructed 384 equivalence classes
+        Reduced 1372 states to 384 equivalence classes
+        Constructed 5 of 5 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 17 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 6 state pairs and 85 transitions in 0.002 seconds at 3000 state pairs and 42500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 20 state pairs and 261 transitions in 0.004 seconds at 5000 state pairs and 65250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 50 state pairs and 621 transitions in 0.006 seconds at 8333.33 state pairs and 103500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 105 state pairs and 1261 transitions in 0.008 seconds at 13125 state pairs and 157625 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 196 state pairs and 2293 transitions in 0.01 seconds at 19600 state pairs and 229300 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 338 state pairs and 3825 transitions in 0.011 seconds at 30727.3 state pairs and 347727 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 544 state pairs and 5945 transitions in 0.013 seconds at 41846.2 state pairs and 457308 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 821 state pairs and 8657 transitions in 0.015 seconds at 54733.3 state pairs and 577133 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 1166 state pairs and 11865 transitions in 0.017 seconds at 68588.2 state pairs and 697941 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 1566 state pairs and 15369 transitions in 0.019 seconds at 82421.1 state pairs and 808895 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 2002 state pairs and 18933 transitions in 0.021 seconds at 95333.3 state pairs and 901571 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 2454 state pairs and 22277 transitions in 0.023 seconds at 106696 state pairs and 968565 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 2902 state pairs and 25153 transitions in 0.024 seconds at 120917 state pairs and 1.04804e+06 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 3318 state pairs and 27393 transitions in 0.026 seconds at 127615 state pairs and 1.05358e+06 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 3666 state pairs and 29009 transitions in 0.028 seconds at 130929 state pairs and 1.03604e+06 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 3938 state pairs and 30097 transitions in 0.03 seconds at 131267 state pairs and 1.00323e+06 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 4142 state pairs and 30781 transitions in 0.031 seconds at 133613 state pairs and 992935 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 4306 state pairs and 31201 transitions in 0.033 seconds at 130485 state pairs and 945485 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 4442 state pairs and 31489 transitions in 0.035 seconds at 126914 state pairs and 899686 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 4550 state pairs and 31689 transitions in 0.036 seconds at 126389 state pairs and 880250 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 4622 state pairs and 31801 transitions in 0.038 seconds at 121632 state pairs and 836868 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 4654 state pairs and 31841 transitions in 0.04 seconds at 116350 state pairs and 796025 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 4662 state pairs and 31849 transitions in 0.041 seconds at 113707 state pairs and 776805 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 4,662
+        Visited Transitions: 31,849
+        Visited Plys: 24
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinNoDiv [T= TreeSystemSpinExtDiv:
+    Log:
+            Found 1 processes including 1 names
+        Found 1 processes including 1 names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 1 processes generating 2 machines
+        Constructed 1 of 2 machines
+        Constructed 2 of 3 machines
+        Visited 0 processes generating 3 machines
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Enumerated to 4662 states and 14685 transitions
+        Constructed 0 states
+        Constructed 1000 states
+        Normalised to 1372 states
+        Constructed 376 equivalence classes
+        Constructed 384 equivalence classes
+        Constructed 384 equivalence classes
+        Reduced 1372 states to 384 equivalence classes
+        Constructed 5 of 5 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.007 seconds at 10000 state pairs and 40142.9 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.009 seconds at 14000 state pairs and 56111.1 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.011 seconds at 19272.7 state pairs and 76818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.013 seconds at 25846.2 state pairs and 102231 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 501 state pairs and 1965 transitions in 0.014 seconds at 35785.7 state pairs and 140357 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 705 state pairs and 2741 transitions in 0.016 seconds at 44062.5 state pairs and 171312 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 941 state pairs and 3625 transitions in 0.018 seconds at 52277.8 state pairs and 201389 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1201 state pairs and 4581 transitions in 0.019 seconds at 63210.5 state pairs and 241105 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1481 state pairs and 5577 transitions in 0.021 seconds at 70523.8 state pairs and 265571 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1777 state pairs and 6589 transitions in 0.023 seconds at 77260.9 state pairs and 286478 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2073 state pairs and 7561 transitions in 0.025 seconds at 82920 state pairs and 302440 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2357 state pairs and 8445 transitions in 0.026 seconds at 90653.8 state pairs and 324808 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 2617 state pairs and 9209 transitions in 0.028 seconds at 93464.3 state pairs and 328893 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 2853 state pairs and 9865 transitions in 0.03 seconds at 95100 state pairs and 328833 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 3073 state pairs and 10449 transitions in 0.031 seconds at 99129 state pairs and 337065 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 3281 state pairs and 10989 transitions in 0.033 seconds at 99424.2 state pairs and 333000 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 3465 state pairs and 11457 transitions in 0.034 seconds at 101912 state pairs and 336971 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 3613 state pairs and 11817 transitions in 0.036 seconds at 100361 state pairs and 328250 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 3721 state pairs and 12057 transitions in 0.038 seconds at 97921.1 state pairs and 317289 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 3785 state pairs and 12185 transitions in 0.039 seconds at 97051.3 state pairs and 312436 transitions per second using 3.22GB total storage.
+        On ply 26 - visited 3821 state pairs and 12249 transitions in 0.042 seconds at 90976.2 state pairs and 291643 transitions per second using 3.22GB total storage.
+        On ply 27 - visited 3837 state pairs and 12273 transitions in 0.043 seconds at 89232.6 state pairs and 285419 transitions per second using 3.22GB total storage.
+        On ply 28 - visited 3841 state pairs and 12281 transitions in 0.045 seconds at 85355.6 state pairs and 272911 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 3,841
+        Visited Transitions: 12,281
+        Visited Plys: 27
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinNoDiv
+\ diff(LockEvents, OnlyRootObtain(L.0, Thread_SPIN))
+    [T= CheckAlwaysAvailable:
+    Log:
+            Found 1 processes including 0 names
+        Found 10 processes including 1 names
+        Visited 2 processes and discovered 0 recursive names
+        Visited 9 processes and discovered 1 recursive names
+        Visited 2 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Visited 0 processes generating 4 machines
+        Constructed 0 states with 4 transitions
+        Constructed 2 of 5 machines
+        Constructed 5 states with 8 transitions
+        Constructed 3 of 8 machines
+        Constructed 4 of 10 machines
+        Constructed 5 of 10 machines
+        Constructed 6 of 12 machines
+        Constructed 7 of 12 machines
+        Constructed 8 of 12 machines
+        Constructed 9 of 13 machines
+        Constructed 10 of 13 machines
+        Constructed 11 of 13 machines
+        Constructed 12 of 13 machines
+        Enumerated to 4662 states and 14685 transitions
+        Constructed 0 states
+        Normalised to 25 states
+        Constructed 5 equivalence classes
+        Constructed 5 equivalence classes
+        Reduced 25 states to 5 equivalence classes
+        Constructed 13 of 13 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 9 transitions in 0.002 seconds at 2500 state pairs and 4500 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 5
+        Visited Transitions: 9
+        Visited Plys: 2
+        Estimated Total Storage: 2.15GB
+CheckAlwaysAvailable
+    [T= TreeSystemSpinNoDiv
+        \ diff(LockEvents, OnlyRootObtain(L.0, Thread_SPIN)):
+    Log:
+            Found 1 processes including 1 names
+        Found 1 processes including 0 names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 1 processes generating 1 machines
+        Constructed 1 of 1 machines
+        Visited 1 processes generating 3 machines
+        Constructed 2 of 3 machines
+        Constructed 0 states
+        Normalised to 5 states
+        Reduced 5 states to 5 equivalence classes
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Constructed 5 of 10 machines
+        Constructed 6 of 10 machines
+        Constructed 7 of 10 machines
+        Constructed 8 of 10 machines
+        Constructed 9 of 12 machines
+        Constructed 10 of 12 machines
+        Constructed 11 of 12 machines
+        Constructed 12 of 13 machines
+        Constructed 13 of 13 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 17 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 6 state pairs and 85 transitions in 0.002 seconds at 3000 state pairs and 42500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 20 state pairs and 261 transitions in 0.004 seconds at 5000 state pairs and 65250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 50 state pairs and 621 transitions in 0.005 seconds at 10000 state pairs and 124200 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 105 state pairs and 1261 transitions in 0.007 seconds at 15000 state pairs and 180143 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 196 state pairs and 2293 transitions in 0.009 seconds at 21777.8 state pairs and 254778 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 338 state pairs and 3825 transitions in 0.011 seconds at 30727.3 state pairs and 347727 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 544 state pairs and 5945 transitions in 0.013 seconds at 41846.2 state pairs and 457308 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 821 state pairs and 8657 transitions in 0.015 seconds at 54733.3 state pairs and 577133 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 1166 state pairs and 11865 transitions in 0.017 seconds at 68588.2 state pairs and 697941 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 1566 state pairs and 15369 transitions in 0.019 seconds at 82421.1 state pairs and 808895 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 2002 state pairs and 18933 transitions in 0.02 seconds at 100100 state pairs and 946650 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 2454 state pairs and 22277 transitions in 0.022 seconds at 111545 state pairs and 1.01259e+06 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 2902 state pairs and 25153 transitions in 0.024 seconds at 120917 state pairs and 1.04804e+06 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 3318 state pairs and 27393 transitions in 0.025 seconds at 132720 state pairs and 1.09572e+06 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 3666 state pairs and 29009 transitions in 0.027 seconds at 135778 state pairs and 1.07441e+06 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 3938 state pairs and 30097 transitions in 0.029 seconds at 135793 state pairs and 1.03783e+06 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 4142 state pairs and 30781 transitions in 0.031 seconds at 133613 state pairs and 992935 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 4306 state pairs and 31201 transitions in 0.033 seconds at 130485 state pairs and 945485 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 4442 state pairs and 31489 transitions in 0.035 seconds at 126914 state pairs and 899686 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 4550 state pairs and 31689 transitions in 0.036 seconds at 126389 state pairs and 880250 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 4622 state pairs and 31801 transitions in 0.038 seconds at 121632 state pairs and 836868 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 4654 state pairs and 31841 transitions in 0.04 seconds at 116350 state pairs and 796025 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 4662 state pairs and 31849 transitions in 0.041 seconds at 113707 state pairs and 776805 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 4,662
+        Visited Transitions: 31,849
+        Visited Plys: 24
+        Estimated Total Storage: 2.15GB
+CountFailedTAS(0) [|{|getAndSet, set|}|] TreeSystemSpinInt
+    :[divergence free]:
+    Log:
+            Found 443 processes including 5 names
+        Visited 438 processes and discovered 5 recursive names
+        Visited 1 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Constructed 0 states with 348 transitions
+        Constructed 5 states with 1393 transitions
+        Constructed 2 of 5 machines
+        Constructed 2 equivalence classes
+        Constructed 3 equivalence classes
+        Constructed 4 equivalence classes
+        Constructed 5 equivalence classes
+        Reduced 5 states to 5 equivalence classes
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Constructed 5 of 11 machines
+        Constructed 6 of 13 machines
+        Constructed 7 of 13 machines
+        Constructed 8 of 13 machines
+        Constructed 9 of 13 machines
+        Constructed 10 of 13 machines
+        Constructed 11 of 13 machines
+        Constructed 12 of 13 machines
+        Constructed 13 of 13 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.008 seconds at 8750 state pairs and 35125 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.009 seconds at 14000 state pairs and 56111.1 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.011 seconds at 19272.7 state pairs and 76818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.013 seconds at 25846.2 state pairs and 102231 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 501 state pairs and 1965 transitions in 0.015 seconds at 33400 state pairs and 131000 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 705 state pairs and 2741 transitions in 0.017 seconds at 41470.6 state pairs and 161235 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 945 state pairs and 3637 transitions in 0.019 seconds at 49736.8 state pairs and 191421 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1217 state pairs and 4629 transitions in 0.021 seconds at 57952.4 state pairs and 220429 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1521 state pairs and 5697 transitions in 0.023 seconds at 66130.4 state pairs and 247696 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1865 state pairs and 6853 transitions in 0.025 seconds at 74600 state pairs and 274120 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2237 state pairs and 8053 transitions in 0.027 seconds at 82851.9 state pairs and 298259 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2629 state pairs and 9261 transitions in 0.029 seconds at 90655.2 state pairs and 319345 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 3053 state pairs and 10485 transitions in 0.031 seconds at 98483.9 state pairs and 338226 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 3497 state pairs and 11705 transitions in 0.033 seconds at 105970 state pairs and 354697 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 3957 state pairs and 12921 transitions in 0.034 seconds at 116382 state pairs and 380029 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 4425 state pairs and 14109 transitions in 0.036 seconds at 122917 state pairs and 391917 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 4869 state pairs and 15221 transitions in 0.038 seconds at 128132 state pairs and 400553 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 5265 state pairs and 16185 transitions in 0.04 seconds at 131625 state pairs and 404625 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 5605 state pairs and 16977 transitions in 0.041 seconds at 136707 state pairs and 414073 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 5869 state pairs and 17545 transitions in 0.043 seconds at 136488 state pairs and 408023 transitions per second using 3.22GB total storage.
+        On ply 26 - visited 6041 state pairs and 17889 transitions in 0.045 seconds at 134244 state pairs and 397533 transitions per second using 3.22GB total storage.
+        On ply 27 - visited 6137 state pairs and 18057 transitions in 0.047 seconds at 130574 state pairs and 384191 transitions per second using 3.22GB total storage.
+        On ply 28 - visited 6173 state pairs and 18105 transitions in 0.049 seconds at 125980 state pairs and 369490 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 6,173
+        Visited Transitions: 18,105
+        Visited Plys: 27
+        Estimated Total Storage: 2.15GB
+CountFailedTAS(1) [|{|getAndSet, set|}|] TreeSystemSpinInt
+    :[divergence free]:
+    Log:
+            Found 333 processes including 4 names
+        Visited 329 processes and discovered 4 recursive names
+        Visited 1 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Constructed 0 states with 348 transitions
+        Constructed 9 states with 1350 transitions
+        Constructed 2 of 5 machines
+        Constructed 2 equivalence classes
+        Constructed 3 equivalence classes
+        Constructed 4 equivalence classes
+        Constructed 5 equivalence classes
+        Constructed 5 equivalence classes
+        Reduced 9 states to 5 equivalence classes
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Constructed 5 of 10 machines
+        Constructed 6 of 11 machines
+        Constructed 7 of 13 machines
+        Constructed 8 of 13 machines
+        Constructed 9 of 13 machines
+        Constructed 10 of 13 machines
+        Constructed 11 of 13 machines
+        Constructed 12 of 13 machines
+        Constructed 13 of 13 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.007 seconds at 10000 state pairs and 40142.9 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.009 seconds at 14000 state pairs and 56111.1 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.011 seconds at 19272.7 state pairs and 76818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.013 seconds at 25846.2 state pairs and 102231 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 502 state pairs and 1969 transitions in 0.015 seconds at 33466.7 state pairs and 131267 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 710 state pairs and 2761 transitions in 0.017 seconds at 41764.7 state pairs and 162412 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 960 state pairs and 3697 transitions in 0.019 seconds at 50526.3 state pairs and 194579 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1252 state pairs and 4769 transitions in 0.021 seconds at 59619 state pairs and 227095 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1591 state pairs and 5977 transitions in 0.023 seconds at 69173.9 state pairs and 259870 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1991 state pairs and 7357 transitions in 0.026 seconds at 76576.9 state pairs and 282962 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2449 state pairs and 8897 transitions in 0.027 seconds at 90703.7 state pairs and 329519 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2961 state pairs and 10573 transitions in 0.03 seconds at 98700 state pairs and 352433 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 3538 state pairs and 12385 transitions in 0.032 seconds at 110562 state pairs and 387031 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 4162 state pairs and 14285 transitions in 0.034 seconds at 122412 state pairs and 420147 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [31mFailed[m
+        Visited States: 4,818
+        Visited Transitions: 16,221
+        Visited Plys: 18
+        Estimated Total Storage: 2.15GB
+        Counterexample (Divergence Counterexample)
+            Machine Debug:
+                (Unnamed) (Repeat Behaviour):
+                    Trace: <callLock.L.2.T.2.1, callLock.L.2.T.2.2, 
+                    get.L.2.T.2.1.false, get.L.2.T.2.2.false, 
+                    callLock.L.1.T.1.2, callLock.L.1.T.1.1, 
+                    getAndSet.L.2.T.2.2.false.true, get.L.1.T.1.2.false, 
+                    get.L.1.T.1.1.false, getAndSet.L.1.T.1.1.false.true, 
+                    getAndSet.L.2.T.2.1.true.true, 
+                    getAndSet.L.1.T.1.2.true.true, callLock.L.0.T.2.2, 
+                    callLock.L.0.T.1.1, get.L.0.T.2.2.false, 
+                    get.L.0.T.1.1.false, getAndSet.L.0.T.2.2.false.true, 
+                    getAndSet.L.0.T.1.1.true.true>
+                    Repeats the trace: <τ>
+TreeSystemSpinInt [|{|getAndSet, get, set|}|] CheckNoDiv
+\ {|getAndSet, set, get|}
+    :[divergence free]:
+    Log:
+            Found 66 processes including 2 names
+        Visited 64 processes and discovered 1 recursive names
+        Constructed 1 of 2 machines
+        Visited 2 processes generating 4 machines
+        Constructed 0 states with 60 transitions
+        Constructed 2 states with 60 transitions
+        Constructed 2 of 6 machines
+        Reduced 2 states to 2 equivalence classes
+        Constructed 3 of 6 machines
+        Constructed 4 of 6 machines
+        Constructed 5 of 6 machines
+        Constructed 6 of 11 machines
+        Constructed 7 of 13 machines
+        Constructed 8 of 13 machines
+        Constructed 9 of 13 machines
+        Constructed 10 of 14 machines
+        Constructed 11 of 14 machines
+        Constructed 12 of 14 machines
+        Constructed 13 of 14 machines
+        Constructed 14 of 14 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 265 transitions in 0.008 seconds at 8750 state pairs and 33125 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 122 state pairs and 413 transitions in 0.009 seconds at 13555.6 state pairs and 45888.9 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 184 state pairs and 541 transitions in 0.011 seconds at 16727.3 state pairs and 49181.8 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 240 state pairs and 617 transitions in 0.013 seconds at 18461.5 state pairs and 47461.5 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 277 state pairs and 645 transitions in 0.015 seconds at 18466.7 state pairs and 43000 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 293 state pairs and 649 transitions in 0.016 seconds at 18312.5 state pairs and 40562.5 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 297 state pairs and 649 transitions in 0.018 seconds at 16500 state pairs and 36055.6 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 297
+        Visited Transitions: 649
+        Visited Plys: 11
+        Estimated Total Storage: 2.15GB
+SimpleSystem :[divergence free]:
+    Log:
+            Found 958 processes including 163 names
+        Visited 795 processes and discovered 160 recursive names
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 4 transitions
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 1 transitions
+        Constructed 0 states with 1 transitions
+        Visited 3 processes generating 16 machines
+        Constructed 6 states with 6 transitions
+        Constructed 0 states with 4 transitions
+        Constructed 1 of 18 machines
+        Constructed 6 states with 6 transitions
+        Constructed 6 states with 6 transitions
+        Constructed 2 of 18 machines
+        Constructed 6 states with 6 transitions
+        Constructed 0 states with 4 transitions
+        Constructed 48 states with 144 transitions
+        Reduced 6 states to 6 equivalence classes
+        Constructed 3 of 18 machines
+        Constructed 48 states with 144 transitions
+        Constructed 48 states with 144 transitions
+        Constructed 4 of 18 machines
+        Reduced 6 states to 6 equivalence classes
+        Reduced 6 states to 6 equivalence classes
+        Constructed 5 of 18 machines
+        Reduced 6 states to 6 equivalence classes
+        Constructed 6 of 18 machines
+        Constructed 7 of 18 machines
+        Reduced 48 states to 48 equivalence classes
+        Constructed 8 of 18 machines
+        Constructed 9 of 18 machines
+        Reduced 48 states to 48 equivalence classes
+        Constructed 10 of 18 machines
+        Reduced 48 states to 48 equivalence classes
+        Constructed 11 of 18 machines
+        Constructed 12 of 18 machines
+        Constructed 13 of 18 machines
+        Constructed 14 of 18 machines
+        Constructed 15 of 18 machines
+        Constructed 16 of 18 machines
+        Constructed 17 of 18 machines
+        Constructed 18 of 23 machines
+        Constructed 19 of 23 machines
+        Constructed 20 of 25 machines
+        Constructed 21 of 25 machines
+        Constructed 22 of 25 machines
+        Constructed 23 of 25 machines
+        Constructed 24 of 25 machines
+        Constructed 25 of 25 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 137 transitions in 0.006 seconds at 5833.33 state pairs and 22833.3 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 68 state pairs and 257 transitions in 0.007 seconds at 9714.29 state pairs and 36714.3 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 116 state pairs and 425 transitions in 0.01 seconds at 11600 state pairs and 42500 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 176 state pairs and 625 transitions in 0.011 seconds at 16000 state pairs and 56818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 240 state pairs and 821 transitions in 0.013 seconds at 18461.5 state pairs and 63153.8 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 296 state pairs and 969 transitions in 0.015 seconds at 19733.3 state pairs and 64600 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 336 state pairs and 1073 transitions in 0.017 seconds at 19764.7 state pairs and 63117.6 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 364 state pairs and 1153 transitions in 0.018 seconds at 20222.2 state pairs and 64055.6 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 380 state pairs and 1193 transitions in 0.02 seconds at 19000 state pairs and 59650 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 384 state pairs and 1201 transitions in 0.022 seconds at 17454.5 state pairs and 54590.9 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 384
+        Visited Transitions: 1,201
+        Visited Plys: 13
+        Estimated Total Storage: 2.15GB
+SimpleSystem [T= TreeSystemSpinExtDiv:
+    Log:
+            Found 1 processes including 1 names
+        Found 1 processes including 1 names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 1 processes generating 2 machines
+        Constructed 1 of 2 machines
+        Visited 0 processes generating 3 machines
+        Constructed 2 of 3 machines
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Enumerated to 384 states and 1200 transitions
+        Constructed 0 states
+        Normalised to 384 states
+        Constructed 376 equivalence classes
+        Constructed 384 equivalence classes
+        Reduced 384 states to 384 equivalence classes
+        Constructed 5 of 5 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 141 transitions in 0.006 seconds at 5833.33 state pairs and 23500 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 70 state pairs and 281 transitions in 0.007 seconds at 10000 state pairs and 40142.9 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 126 state pairs and 505 transitions in 0.009 seconds at 14000 state pairs and 56111.1 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 212 state pairs and 845 transitions in 0.011 seconds at 19272.7 state pairs and 76818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 336 state pairs and 1329 transitions in 0.013 seconds at 25846.2 state pairs and 102231 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 501 state pairs and 1965 transitions in 0.015 seconds at 33400 state pairs and 131000 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 705 state pairs and 2741 transitions in 0.017 seconds at 41470.6 state pairs and 161235 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 941 state pairs and 3625 transitions in 0.019 seconds at 49526.3 state pairs and 190789 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 1201 state pairs and 4581 transitions in 0.021 seconds at 57190.5 state pairs and 218143 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 1481 state pairs and 5577 transitions in 0.023 seconds at 64391.3 state pairs and 242478 transitions per second using 3.22GB total storage.
+        On ply 15 - visited 1777 state pairs and 6589 transitions in 0.025 seconds at 71080 state pairs and 263560 transitions per second using 3.22GB total storage.
+        On ply 16 - visited 2073 state pairs and 7561 transitions in 0.027 seconds at 76777.8 state pairs and 280037 transitions per second using 3.22GB total storage.
+        On ply 17 - visited 2357 state pairs and 8445 transitions in 0.028 seconds at 84178.6 state pairs and 301607 transitions per second using 3.22GB total storage.
+        On ply 18 - visited 2617 state pairs and 9209 transitions in 0.03 seconds at 87233.3 state pairs and 306967 transitions per second using 3.22GB total storage.
+        On ply 19 - visited 2853 state pairs and 9865 transitions in 0.032 seconds at 89156.2 state pairs and 308281 transitions per second using 3.22GB total storage.
+        On ply 20 - visited 3073 state pairs and 10449 transitions in 0.033 seconds at 93121.2 state pairs and 316636 transitions per second using 3.22GB total storage.
+        On ply 21 - visited 3281 state pairs and 10989 transitions in 0.035 seconds at 93742.9 state pairs and 313971 transitions per second using 3.22GB total storage.
+        On ply 22 - visited 3465 state pairs and 11457 transitions in 0.037 seconds at 93648.6 state pairs and 309649 transitions per second using 3.22GB total storage.
+        On ply 23 - visited 3613 state pairs and 11817 transitions in 0.038 seconds at 95078.9 state pairs and 310974 transitions per second using 3.22GB total storage.
+        On ply 24 - visited 3721 state pairs and 12057 transitions in 0.04 seconds at 93025 state pairs and 301425 transitions per second using 3.22GB total storage.
+        On ply 25 - visited 3785 state pairs and 12185 transitions in 0.042 seconds at 90119 state pairs and 290119 transitions per second using 3.22GB total storage.
+        On ply 26 - visited 3821 state pairs and 12249 transitions in 0.044 seconds at 86840.9 state pairs and 278386 transitions per second using 3.22GB total storage.
+        On ply 27 - visited 3837 state pairs and 12273 transitions in 0.045 seconds at 85266.7 state pairs and 272733 transitions per second using 3.22GB total storage.
+        On ply 28 - visited 3841 state pairs and 12281 transitions in 0.047 seconds at 81723.4 state pairs and 261298 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 3,841
+        Visited Transitions: 12,281
+        Visited Plys: 27
+        Estimated Total Storage: 2.15GB
+TreeSystemSpinExtDiv [T= SimpleSystem:
+    Log:
+            Found 1 processes including 1 names
+        Found 1 processes including 1 names
+        Visited 1 processes and discovered 0 recursive names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 1 processes generating 0 machines
+        Visited 0 processes generating 1 machines
+        Constructed 1 of 1 machines
+        Constructed 2 of 3 machines
+        Constructed 3 of 3 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 137 transitions in 0.005 seconds at 7000 state pairs and 27400 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 68 state pairs and 257 transitions in 0.007 seconds at 9714.29 state pairs and 36714.3 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 116 state pairs and 425 transitions in 0.009 seconds at 12888.9 state pairs and 47222.2 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 176 state pairs and 625 transitions in 0.011 seconds at 16000 state pairs and 56818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 240 state pairs and 821 transitions in 0.013 seconds at 18461.5 state pairs and 63153.8 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 296 state pairs and 969 transitions in 0.014 seconds at 21142.9 state pairs and 69214.3 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 336 state pairs and 1073 transitions in 0.016 seconds at 21000 state pairs and 67062.5 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 364 state pairs and 1153 transitions in 0.018 seconds at 20222.2 state pairs and 64055.6 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 380 state pairs and 1193 transitions in 0.02 seconds at 19000 state pairs and 59650 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 384 state pairs and 1201 transitions in 0.021 seconds at 18285.7 state pairs and 57190.5 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 384
+        Visited Transitions: 1,201
+        Visited Plys: 13
+        Estimated Total Storage: 2.15GB
+SimpleSystem
+\ diff(LockEvents, {lockAcquired.L.0.t | t <- Thread_SPEC})
+    [T= rootAccess:
+    Log:
+            Found 1 processes including 0 names
+        Found 2 processes including 1 names
+        Visited 2 processes and discovered 0 recursive names
+        Visited 1 processes and discovered 1 recursive names
+        Visited 2 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Visited 0 processes generating 4 machines
+        Constructed 2 of 5 machines
+        Constructed 0 states with 4 transitions
+        Constructed 1 states with 4 transitions
+        Constructed 3 of 5 machines
+        Constructed 4 of 12 machines
+        Constructed 5 of 12 machines
+        Constructed 6 of 12 machines
+        Constructed 7 of 12 machines
+        Constructed 8 of 12 machines
+        Constructed 9 of 12 machines
+        Constructed 10 of 12 machines
+        Constructed 11 of 12 machines
+        Enumerated to 384 states and 1200 transitions
+        Constructed 0 states
+        Normalised to 13 states
+        Constructed 1 equivalence classes
+        Constructed 1 equivalence classes
+        Reduced 13 states to 1 equivalence classes
+        Constructed 12 of 12 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 1
+        Visited Transitions: 5
+        Visited Plys: 1
+        Estimated Total Storage: 2.15GB
+SimpleSystem
+\ diff({|lockReleased, callLock, lockAcquired|},
+       {lockAcquired.L.0.t | t <- Thread_SPEC})
+    [T= rootAccess:
+    Log:
+            Found 1 processes including 0 names
+        Found 1 processes including 1 names
+        Visited 2 processes and discovered 0 recursive names
+        Visited 0 processes and discovered 0 recursive names
+        Visited 2 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Visited 0 processes generating 4 machines
+        Constructed 2 of 5 machines
+        Constructed 3 of 5 machines
+        Constructed 4 of 8 machines
+        Constructed 5 of 9 machines
+        Constructed 6 of 9 machines
+        Constructed 7 of 12 machines
+        Constructed 8 of 12 machines
+        Constructed 9 of 12 machines
+        Constructed 10 of 12 machines
+        Constructed 11 of 12 machines
+        Enumerated to 384 states and 1200 transitions
+        Constructed 0 states
+        Normalised to 13 states
+        Constructed 1 equivalence classes
+        Constructed 1 equivalence classes
+        Reduced 13 states to 1 equivalence classes
+        Constructed 12 of 12 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 1
+        Visited Transitions: 5
+        Visited Plys: 1
+        Estimated Total Storage: 2.15GB
+SimpleStarvation(T.NLOCKS_SPEC-1/2.1)
+[|{lockAcquired.L.0.t | t <- Thread_SPEC}|] SimpleSystem
+\ LockEvents
+    :[divergence free]:
+    Log:
+            Found 46 processes including 4 names
+        Visited 42 processes and discovered 4 recursive names
+        Visited 2 processes generating 4 machines
+        Constructed 1 of 4 machines
+        Constructed 0 states with 4 transitions
+        Constructed 8 states with 20 transitions
+        Constructed 2 of 6 machines
+        Constructed 5 equivalence classes
+        Constructed 8 equivalence classes
+        Reduced 8 states to 8 equivalence classes
+        Constructed 3 of 6 machines
+        Constructed 4 of 6 machines
+        Constructed 5 of 6 machines
+        Constructed 6 of 11 machines
+        Constructed 7 of 12 machines
+        Constructed 8 of 14 machines
+        Constructed 9 of 14 machines
+        Constructed 10 of 14 machines
+        Constructed 11 of 14 machines
+        Constructed 12 of 14 machines
+        Constructed 13 of 14 machines
+        Constructed 14 of 14 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        Finished
+        Reconstructing counterexamples
+    Result: [31mFailed[m
+        Visited States: 1
+        Visited Transitions: 1
+        Visited Plys: 0
+        Estimated Total Storage: 2.15GB
+        Counterexample (Divergence Counterexample)
+            Machine Debug:
+                (Unnamed) (Repeat Behaviour):
+                    Trace: <τ, τ, τ, τ, τ, τ, τ, τ, τ, τ, τ, τ, τ, 
+                    τ, τ, τ, τ, τ, τ, τ, τ>
+                    Repeats the trace: <τ, τ, τ, τ, τ, τ>
+lockAcquisitions(0) [|{|lockAcquired, lockReleased|}|] SimpleSystem
+    :[divergence free]:
+    Log:
+            Found 307 processes including 5 names
+        Visited 302 processes and discovered 5 recursive names
+        Visited 1 processes generating 3 machines
+        Constructed 1 of 3 machines
+        Constructed 0 states with 36 transitions
+        Constructed 5 states with 145 transitions
+        Constructed 2 of 5 machines
+        Constructed 2 equivalence classes
+        Constructed 4 equivalence classes
+        Constructed 5 equivalence classes
+        Reduced 5 states to 5 equivalence classes
+        Constructed 3 of 5 machines
+        Constructed 4 of 5 machines
+        Constructed 5 of 11 machines
+        Constructed 6 of 11 machines
+        Constructed 7 of 11 machines
+        Constructed 8 of 11 machines
+        Constructed 9 of 11 machines
+        Constructed 10 of 13 machines
+        Constructed 11 of 13 machines
+        Constructed 12 of 13 machines
+        Constructed 13 of 13 machines
+        Parallel BTree Explorer using 64 workers, 28 to 28 bytes per state
+        Next level storage overhead is 4.02934 bytes per state (402.934 MB per 100 million states)
+        Using BTree blocks of size 8 KiB and next-level blocks of size 8 KiB
+        On ply 1
+        On ply 2 - visited 1 state pairs and 5 transitions in 0 seconds at inf state pairs and inf transitions per second using 3.22GB total storage.
+        On ply 3 - visited 5 state pairs and 21 transitions in 0.002 seconds at 2500 state pairs and 10500 transitions per second using 3.22GB total storage.
+        On ply 4 - visited 15 state pairs and 61 transitions in 0.004 seconds at 3750 state pairs and 15250 transitions per second using 3.22GB total storage.
+        On ply 5 - visited 35 state pairs and 137 transitions in 0.006 seconds at 5833.33 state pairs and 22833.3 transitions per second using 3.22GB total storage.
+        On ply 6 - visited 68 state pairs and 257 transitions in 0.007 seconds at 9714.29 state pairs and 36714.3 transitions per second using 3.22GB total storage.
+        On ply 7 - visited 116 state pairs and 425 transitions in 0.009 seconds at 12888.9 state pairs and 47222.2 transitions per second using 3.22GB total storage.
+        On ply 8 - visited 176 state pairs and 625 transitions in 0.011 seconds at 16000 state pairs and 56818.2 transitions per second using 3.22GB total storage.
+        On ply 9 - visited 240 state pairs and 821 transitions in 0.013 seconds at 18461.5 state pairs and 63153.8 transitions per second using 3.22GB total storage.
+        On ply 10 - visited 296 state pairs and 969 transitions in 0.014 seconds at 21142.9 state pairs and 69214.3 transitions per second using 3.22GB total storage.
+        On ply 11 - visited 336 state pairs and 1073 transitions in 0.016 seconds at 21000 state pairs and 67062.5 transitions per second using 3.22GB total storage.
+        On ply 12 - visited 364 state pairs and 1153 transitions in 0.018 seconds at 20222.2 state pairs and 64055.6 transitions per second using 3.22GB total storage.
+        On ply 13 - visited 380 state pairs and 1193 transitions in 0.02 seconds at 19000 state pairs and 59650 transitions per second using 3.22GB total storage.
+        On ply 14 - visited 384 state pairs and 1201 transitions in 0.021 seconds at 18285.7 state pairs and 57190.5 transitions per second using 3.22GB total storage.
+        Finished
+        Reconstructing counterexamples
+    Result: [32mPassed[m
+        Visited States: 384
+        Visited Transitions: 1,201
+        Visited Plys: 13
+        Estimated Total Storage: 2.15GB

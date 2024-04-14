@@ -1,0 +1,181 @@
+module SCLMonitor
+
+-- Needs to be puts together in parallel for running and then analysis
+
+include "lock-support.csp"
+
+--instance Locks = LockSupport--(MonitorID, ConditionID)
+
+channel acquire, release: MonitorID.ConditionID.ThreadID
+
+channel waitingEmpty: MonitorID.ConditionID
+channel enqueue, dequeue, setReady: MonitorID.ConditionID.ThreadID
+channel isReady: MonitorID.ConditionID.ThreadID.Bool
+
+channel await, signal, signalAll: MonitorID.ConditionID.ThreadID
+
+Waiting :: (MonitorID, ConditionID, <ThreadID>, {ThreadID}) -> Proc
+Waiting(mon, cnd, <>, rs) = enqueue.mon.cnd?t -> Waiting(mon, cnd, <t>, rs)
+    [] waitingEmpty.mon.cnd -> Waiting(mon, cnd, <>, rs)
+    [] isReady.mon.cnd?x!(member(x, rs)) -> Waiting(mon, cnd, <>, diff(rs, {x}))
+    [] setReady.mon.cnd?x -> Waiting(mon, cnd, <>, union(rs, {x}))
+Waiting(mon, cnd, <t> ^ ts, rs) = enqueue.mon.cnd?u:diff(ThreadID, union(set(ts), {t})) -> Waiting(mon, cnd,  <t>^ts^<u>, rs)
+    [] dequeue.mon.cnd.t -> Waiting(mon, cnd, ts, rs)
+    [] isReady.mon.cnd?x!(member(x, rs)) -> Waiting(mon, cnd, <t>^ts, diff(rs, {x}))
+    [] setReady.mon.cnd?x -> if member(x, rs) then DIV else Waiting(mon, cnd, <t>^ts, union(rs, {x}))
+
+-- Currently assumes correct access behaviour, should be changed
+Unlocked(mon, cnd, waiting) = acquire.mon.cnd?t:waiting -> Locked(mon, cnd, diff(waiting, {t}), t)
+Locked(mon, cnd, waiting, t) = release.mon.cnd.t -> Unlocked(mon, cnd, waiting)
+              --[] checkHolder.mon.cnd.t -> Locked(mon, cnd, waiting, t)
+              [] await.mon.cnd.t -> Unlocked(mon, cnd, union(waiting, {t}))
+
+
+    -- Improve waiting modelling with isReady
+Await1(mon, cnd, t) = release.mon.cnd.t ->park.mon.cnd.t -> (wakeUp.mon.cnd.t.true -> setReady.mon.cnd.t -> acquire.mon.cnd.t -> SKIP)
+    [] (wakeUp.mon.cnd.t.false -> Await1(mon, cnd, t))
+    
+Signal1(mon, cnd, t) =  (waitingEmpty.mon.cnd -> SKIP)
+          [] dequeue.mon.cnd?t2 -> isReady.mon.cnd.t2?b ->
+              if b then Signal1(mon, cnd,t) --Thread previously awoken, get new one
+              else setReady.mon.cnd.t2 -> unpark.mon.cnd.t.t2 -> SKIP
+
+SignalAll1(mon, cnd, t) =  (waitingEmpty.mon.cnd -> SKIP)
+    [] dequeue.mon.cnd?t2 -> setReady.mon.cnd.t2 -> unpark.mon.cnd.t.t2 -> SignalAll1(mon, cnd, t)
+
+remove(x, pre, suf) = if suf == <> then pre
+                      else if head(suf) == x then pre^tail(suf)
+                      else remove(x, pre^<head(suf)>, tail(suf))
+
+Unlocked'(mon, cnd, waiting) = 
+    acquire.mon.cnd?t:diff(ThreadID, set(waiting)) -> Locked'(mon, cnd, waiting, t)
+  [] wakeUp.mon.cnd?t':set(waiting)!false -> Unlocked'(mon, cnd, remove(t', <>, waiting))
+
+Locked'(mon, cnd, <>, t) = 
+    release.mon.cnd.t -> Unlocked'(mon, cnd, <>)
+  [] await.mon.cnd.t -> Unlocked'(mon, cnd, <t>)
+  [] signal.mon.cnd.t -> Locked'(mon, cnd, <>, t)
+  [] signalAll.mon.cnd.t -> Locked'(mon, cnd, <>, t)
+
+Locked'(mon, cnd, <t'>^waiting, t) = 
+    release.mon.cnd.t -> Unlocked'(mon, cnd, waiting)
+  [] await.mon.cnd.t -> Unlocked'(mon, cnd, <t'>^waiting^<t>)
+  [] signal.mon.cnd.t -> wakeUp.mon.cnd.t'.true -> Locked'(mon, cnd, waiting, t)
+  [] signalAll.mon.cnd.t -> Empty'(mon, cnd, waiting, t) --Locked'(mon, cnd, {}, t)
+  [] wakeUp.mon.cnd?t'':set(waiting)!false -> Locked'(mon, cnd, remove(t'', <t'>, waiting), t)
+  [] wakeUp.mon.cnd.t'!false -> Locked'(mon, cnd, waiting, t)
+
+Empty'(mon, cnd, <>, t) = Locked'(mon, cnd, <>, t)
+Empty'(mon, cnd, <t'>^ts, t) = wakeUp.mon.cnd.t'.true -> Empty'(mon, cnd, ts, t)
+
+exports
+
+InitialiseMon(mon, cond) = (InitLockSupp(mon, cond) [|{|wakeUp.mon.cond, park.mon.cond, unpark.mon.cond|}|] Unlocked'(mon, cond, <>)) \ {|park|}
+                             --InitLockSupp(mon, cond) ||| Unlocked'(mon, cond, <>)
+
+runWith(P, mon, cond) = (P [|{|unpark.mon.cond, acquire.mon.cond, release.mon.cond,await.mon.cond,signal.mon.cond,signalAll.mon.cond, wakeUp.mon.cond|}|]
+                            InitialiseMon(mon, cond)) \ {|wakeUp|}
+
+-- Pre: hold the lock already
+Await(mon, cnd, t) = await.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Await1(mon, cnd, t)
+
+Signal(mon, cnd, t) = signal.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Signal1(mon, cnd, t)
+
+SignalAll(mon, cnd, t) = signalAll.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                            SignalAll1(mon, cnd, t)
+
+Lock(mon, cnd, t) = acquire.mon.cnd.t -> SKIP
+
+Unlock(mon, cnd, t) = release.mon.cnd.t -> SKIP
+
+
+
+endmodule
+
+-- Here we use a different MonitorID for each condition
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Waiting :: (MonitorID, <ThreadID>, {ThreadID}) -> Proc
+-- Waiting(mon, <>, rs) = enqueue.mon?t -> Waiting(mon, <t>, rs)
+--     [] waitingEmpty.mon -> Waiting(mon, <>, rs)
+--     [] isReady.mon?x!(member(x, rs)) -> Waiting(mon, <>, diff(rs, {x}))
+--     [] setReady.mon?x -> Waiting(mon, <>, union(rs, {x}))
+-- Waiting(mon, <t> ^ ts, rs) = enqueue.mon?u:diff(ThreadID, union(set(ts), {t})) -> Waiting(mon, <t>^ts^<u>, rs)
+--     [] dequeue.mon?x -> Waiting(mon, ts, rs)
+--     [] isReady.mon?x!(member(x, rs)) -> Waiting(mon, <t>^ts, diff(rs, {x}))
+--     [] setReady.mon?x -> if member(x, rs) then DIV else Waiting(mon, <t>^ts, union(rs, {x}))
+
+-- -- Currently assumes correct access behaviour, should be changed
+-- Unlocked(mon, waiting) = acquire.mon?t:waiting -> Locked(mon, diff(waiting, {t}), t)
+-- Locked(mon, waiting, t) = release.mon.t -> Unlocked(mon, waiting)
+--               [] checkHolder.mon.t -> Locked(mon, waiting, t)
+--               [] await.mon.cnd.t -> Unlocked(mon, union(waiting, {t}))
+
+-- -- Pre: hold the lock already
+-- Await(mon, t) = await.mon.cnd.t -> checkHolder.mon?t2 -> if t2 != t then DIV 
+--     else release.mon.t -> Await1(mon, t)
+--     -- Improve waiting modelling with isReady
+-- Await1(mon, t) = park.mon.t -> (wakeUp.mon.t.true -> setReady.mon.t -> acquire.mon.t -> SKIP)
+--     [] (wakeUp.mon.t.false -> Await1(mon, t))
+
+-- Signal(mon, t) = signal.mon.cnd.t -> checkHolder.mon?t2 -> if t2 != t then DIV 
+--     else Signal1(mon, t)
+    
+-- Signal1(mon, t) =  (waitingEmpty.mon -> SKIP)
+--           [] dequeue.mon?t2 -> isReady.mon.t2?b ->
+--               if b then Signal1(mon, t) --Thread previously awoken, get new one
+--               else setReady.mon.t2 -> unpark.mon.t.t2 -> SKIP
+
+-- SignalAll(mon, t) = signalAll.mon.t -> checkHolder.mon?t2 -> if t2 != t then DIV 
+--     else SignalAll1(mon, t)
+
+-- SignalAll1(mon, t) =  (waitingEmpty.mon -> SKIP)
+--     [] dequeue.mon?t2 -> setReady.mon.t2 -> unpark.mon.t.t2 -> SignalAll1(mon, t)
+
+
+-- channel spuriousWakeup : MonitorID.ThreadID
+
+-- -- All events except spuriousWakeup
+-- events = {|acquire, release, checkHolder, waitingEmpty, enqueue, dequeue, setReady, isReady, await,signal, signalAll|}
+-- --events = {| acquire, release, checkHolder, await,signal, signalAll, waitingEmpty, enqueue, dequeue, setReady |}
+
+-- InitialiseMon(mon) = (Unlocked(mon) ||| Waiting(mon, <>, {})) [[spuriousWakeup.mon.t <- wakeUp.mon.t.false | t <- ThreadID]]
+-- InitialiseAll = (||| mon <- MonitorID @ (Unlocked(mon) ||| Waiting(mon, <>, {}))) [[spuriousWakeup.mon.t <- wakeUp.mon.t.false | t <- ThreadID, mon <- MonitorID]]
+
+-- Reg = CHAOS({|spuriousWakeup|})
+
+-- runWith(obj, P) = P [| events |] (InitialiseMon(obj)  [| {|spuriousWakeup|} |] Reg)
+
+--   runWithAll(P) = 
+--     P [| events |] 
+--       (||| mon <- MonitorID @ (InitialiseMon(mon)  [| {|spuriousWakeup|} |] Reg))
+
+
+
+
+-- Notify(mon, t) = Signal(mon, t)
+-- NotifyAll(mon, t) = SignalAll(mon, t)
+-- Wait(mon, t) = Await(mon, t)
+-- Synchronized(mon, t, P) = acquire.mon.t -> P; release.mon.t -> SKIP
+
+                                          

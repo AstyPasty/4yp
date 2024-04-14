@@ -12,8 +12,6 @@ datatype LockID = L.{0}
 
 -- Used to count the number of 'failed' getAndSets
 channel delay: ThreadID
--- Used to indicate a thread has terminated
-channel end: ThreadID
 
 -- state variable
 channel getState, setState : ThreadID . Bool
@@ -59,8 +57,8 @@ AllThreads = ||| t : ThreadID @ Thread(t)
 ActualSystem = (AllThreads [|InternalChannels|] State)
 -- Rename lock acquisition and releasing and hide internal events
 ActualSystemR = (ActualSystem 
-                  [[gASState.t.False.True <- lockObtained.L.0.t, 
-                  setState.t.False <- lockUnlocked.L.0.t | t <- ThreadID]])
+                  [[gASState.t.False.True <- lockAcquired.L.0.t, 
+                  setState.t.False <- lockReleased.L.0.t | t <- ThreadID]])
                     \ InternalChannels
 
 

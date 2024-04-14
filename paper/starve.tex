@@ -1,0 +1,90 @@
+\section{Thoughts on starvation freedom (not intended as part of text)}
+Using the definition of starvation freedom from \cite{TAoMP} 
+\begin{quote}
+"The starvation-freedom property guarantees that every thread that calls lock()
+eventually enters the critical section, but it makes no guarantees about how long
+this may take."
+\end{quote}
+
+To model starvation freedom in the traces model we'd need to be able to force any thread to perform multiple actions; otherwise every deadlock free lock implementation allows one thread to just continually acquire and release the lock and this is clearly starvation free for any thread that doesn't call lock. As a result, we need to use the failures model 
+\begin{flushleft}
+$\forall(s,ref) \in failures(P), \forall(t) \in ThreadID \, . \,\, $
+
+$\;\; ((\#(s \upharpoonright \{lockAcquired.t\}) + 1 >= \#(s \upharpoonright \{callLock.t\}) >= \#(s \upharpoonright \{lockAcquired.t\})) \wedge$
+
+$\quad (\#(s \upharpoonright \{callLock.t\}) = \#(s \upharpoonright \{lockAcquired.t\}) \vee $ |-- t not waiting for lock|
+
+$\quad\, \:((\#(s \downarrow lockAcquired) = \#(s \downarrow lockReleased)) \implies lockAcquired.t \notin ref) \wedge $ %|--lock currently available|
+
+%$\qquad lockAcquired.t \notin ref \wedge$ |-- t can acquire the lock|
+
+$\quad\, \:\, \: (\forall s' \, st. \,\, (s\,\hat{ }\,s', ref') \in failures(P) \,.\,\, $
+
+||$\qquad \, \:$|--t must acquire lock 1 time more than it calls it in s' in order to terminate correctly|
+
+$\qquad \, \:(\#(s' \upharpoonright \{lockAcquired.t\}) \neq 1 + \#(s' \upharpoonright \{callLock.t\}) \implies ref' \neq \Sigma) \wedge$
+
+$\qquad \, \: (\exists a \leq s' . \,\, (a\, \hat{ }\,\langle lockObtained.t\rangle) \leq s')$
+
+\end{flushleft}
+
+I believe the above works as a specification for starvation freedom as it asserts that |callLock.t| occurs at most once more than |lockObtained.t| in $s$ (correct behaviour of the lock). We also have that either |t| is not trying to acquire the lock at the end of $s$ or that for any finite trace $s'$ st. $(s\hat{ }s', ref') \in failures(P)$, we have that if $ref' = \Sigma$ i.e.~the system has terminated, then $s'$ must contain exactly one more |lockObtained.t| than |callLock.t| in order to terminate without |t| still waiting for the lock. I believe the last line asserts that for infinite $s'$, there exists some finite prefix $a$ such that $(a\, \hat{ }\,\langle lockObtained.t\rangle) \leq s')$, but am not certain of if there is a way to assert that a is finite (or if indeed this is even necessary). Regulator processes for these individual requirements seem obvious except for last line, that |lockObtained.t| occurs in some finite prefix of $s'$. A process |C(t) = P(0) [> lockObtained.t -> STOP| where |P(n, t) = [] a: LockChans @ a.L.0?s: diff(ThreadID, {t}) -> P(n+1, t)| restricts to countably infinite prefixes, but I can't find a unartificial way of restricting to finite prefixes (are traces restricted in length in FDR?).
+
+If this is not possible then we can resort to capturing the stronger property of first-come-first-served, which in turn implies starvation-freedom. We do this by extending |LockEvents| to |FCFSLockEvents = union(LockEvents)|. We then construct |FCFSActualSystemR = ActualSystemR [[*doorwayEvent?t* <- doorwayComplete.t]]| and |FCFSActualSystemRExtDiv = FCFSActualSystemR \ InternalChannels|.
+
+The following is a pretty scruffy implementation of a Peterson lock (to be tidied up, but more as a proof of concept here):
+\begin {cspm}
+  datatype Index = I.{0..2}
+  -- I.0 and I.1 corresponds to the flags of T.0 and T.1 respectively
+  -- I.2 corresponds to the victim variable, with true corresponding 
+  --     to T.1 and false corresponding to T.2
+  Variables = Array(Index, false, get, set, getAndSet)
+
+  Lock :: (ThreadID) -> Proc
+  Lock(T.x) = if x == 1 then set.I.1.T.1.True -> set.I.2.T.1.True -> WhileLock(T.1)
+              else if x == 0 then set.I.0.T.0.True -> set.I.2.T.0.False -> WhileLock(T.0)
+              else DIV -- only works for two threads
+  WhileLock(T.x) = get.I.1-x.T.x?v -> if v == False then SKIP -- lock acquired
+                                      else get.I.2.T.x?y ->
+                                        if x == 1 and y == True then WhileLock(T.x)
+                                        else if x == 0 and y == False then WhileLock(T.x)
+                                        else SKIP
+
+  Unlock :: (ThreadID) -> Proc
+  Unlock(T.x) = set.I.x.T.x.False -> SKIP
+
+  Thread(T.x) = callLock.L.0.T.x -> Lock(T.x); Unlock(T.x); Thread(T.x)
+\end{cspm}
+
+We also define a process |FCFS| which is a trace specification for first-come-first-served. The first parameter is a set containing the nodes that are trying to acquire the lock and have hence started their doorway; the second set contains the nodes that have finished their doorway section but have not yet acquired the lock; the third set contains the live threads. We have that the |FCFSActualSystemRExtDiv| given by the Peterson lock implementation above is trace refined by |FCFS| as defined below. This shows that the Peterson lock is first-come-first-served and hence starvation free. 
+
+We can hence use this refinement check on the tree lock with Peterson locks at each fork in the tree.
+
+I haven't been able to think of/find any lock implementations that are starvation free but not first-come-first-served, but at the very least this gives us a way of proving starvation-freedom for some locks
+
+\begin{cspm}
+  -- Works for 2 threads
+  FCFS({}, {}, TS)     = callLock.L.0?t -> FCFS({t}, {}, TS)
+                        [] end?t:TS -> FCFS({}, {}, diff(TS, {t}))
+  FCFS({t}, {}, TS)    = callLock.L.0?t2:diff(TS, {t}) -> 
+                              FCFS(union({t}, {t2}), {}, TS)
+                        [] doorwayComplete.L.0.t -> FCFS({}, {t}, TS)
+                        [] end?t2:diff(TS, {t}) -> FCFS({t}, {}, diff(TS,{t2}))
+  FCFS(ts, {}, TS)     = doorwayComplete.L.0?t:ts -> 
+                          (doorwayComplete.L.0?t2:diff(ts, {t}) -> 
+                              lockAcquired.L.0?t3:ts -> 
+                                FCFS({}, diff(ts, {t3}), TS)
+                            [] lockAcquired.L.0.t -> FCFS(diff(ts, {t}), {}, TS))
+  FCFS({}, {t}, TS)    = lockAcquired.L.0.t -> FCFS({}, {}, TS)
+                        [] callLock.L.0?t2:diff(TS, {t}) -> 
+                              (lockAcquired.L.0.t -> FCFS({t2}, {}, TS) 
+                              [] doorwayComplete.L.0.t2 -> 
+                                    lockAcquired.L.0.t -> FCFS({}, {t2}, TS))
+                        [] end?t2:diff(TS, {t}) -> FCFS({}, {t}, diff(TS, {t2}))
+  FCFS({t1}, {t2}, TS) = lockAcquired.L.0.t2 -> FCFS({t1}, {}, TS)
+                        [] doorwayComplete.L.0.t1 -> lockAcquired.L.0.t2 
+                                                  -> FCFS({}, {t1}, TS) 
+
+  assert FCFS({}, {}, ThreadID) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}
+\end{cspm}
+

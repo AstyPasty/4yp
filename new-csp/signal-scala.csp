@@ -1,9 +1,12 @@
 include "variable.csp"
 
 --include "MyJVMMonitor.csp"
-include "JVMMonitorModule.csp"
+include "scl-monitor.csp"
 
-instance Monitors = JVMMonitor(MonitorID)
+datatype SignalID = S.{0}
+datatype MonitorID = SigM.SignalID
+datatype ThreadID = T.{0}
+
 
 -- WaitNotify and Notifying are used to model the wait and notify functions
 -- WaitNotify tracks the waiting threads (for a given object), then once 
@@ -31,28 +34,28 @@ signalChannels = {|callSignalUpAndWait, callWaitForSignalUp, callSignalDown|}
 
 SignalUpAndWait :: (SignalID, ThreadID) -> Proc
 SignalUpAndWait(s, t) = 
-  callSignalUpAndWait.s.t -> Monitors::Synchronized(SigM.s, t, SignalUpAndWait2(s, t))
+  callSignalUpAndWait.s.t -> Synchronized(SigM.s, t, SignalUpAndWait2(s, t))
 SignalUpAndWait2(s, t) = 
   getState.s.t?val -> if val == true then DIV -- Required to be false
                       else setState.s.t.true -> 
-                           Monitors::Notify(SigM.s, t); SignalWaitingForFalse(s, t)
+                           Notify(SigM.s, t); SignalWaitingForFalse(s, t)
 
 WaitForSignalUp :: (SignalID, ThreadID) -> Proc  
 WaitForSignalUp(s, t) = 
-  callWaitForSignalUp.s.t -> Monitors::Synchronized(SigM.s, t, WaitForSignalUp2(s, t))        
+  callWaitForSignalUp.s.t -> Synchronized(SigM.s, t, WaitForSignalUp2(s, t))        
 WaitForSignalUp2(s, t) = 
   getState.s.t?val -> if val == true then  SKIP 
-                      else Monitors::Wait(SigM.s, t); WaitForSignalUp2(s, t)
+                      else Wait(SigM.s, t); WaitForSignalUp2(s, t)
 
 SignalDown :: (SignalID, ThreadID) -> Proc
-SignalDown(s, t) = callSignalDown.s.t -> Monitors::Synchronized(SigM.s, t, SignalDown2(s, t))
-SignalDown2(s, t) = setState.s.t.false -> Monitors::Notify(SigM.s, t); SKIP
+SignalDown(s, t) = callSignalDown.s.t -> Synchronized(SigM.s, t, SignalDown2(s, t))
+SignalDown2(s, t) = setState.s.t.false -> Notify(SigM.s, t); SKIP
 
 -- The implementations of the while loops
 SignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
 SignalWaitingForFalse(s, t) = 
   getState.s.t?val -> if val == false then SKIP
-                      else Monitors::Wait(SigM.s, t); SignalWaitingForFalse(s, t)
+                      else Wait(SigM.s, t); SignalWaitingForFalse(s, t)
                                 
 -- SignalWaitingForTrue :: (SignalID, ThreadID) -> Proc
 -- SignalWaitingForTrue(s, t) = getState.s.t?val ->
@@ -66,19 +69,24 @@ SignalWaitingForFalse(s, t) =
 
 
 OldInitialiseSignals(threads) = 
-  (threads [|union(Monitors::events, stateChannels)|] 
-    (State ||| Monitors::InitialiseAll)) \ union(stateChannels, Monitors::events)
+  (threads [|union(events, stateChannels)|] 
+    (State ||| InitialiseAll)) \ union(stateChannels, events)
 
 OldNewInitialiseSignals(threads) = 
-  ((threads [|stateChannels|] State) [|Monitors::events|]  Monitors::InitialiseAll) \ union(stateChannels, Monitors::events)
+  ((threads [|stateChannels|] State) [|events|]  InitialiseAll) \ union(stateChannels, events)
 
 InitialiseSignals(threads) = 
-  Monitors::runWithAll(threads [|stateChannels|] State)  \ union(stateChannels, Monitors::events)
+  runWithAll(threads [|stateChannels|] State)  \ union(stateChannels, events)
+
+Test = Signal(SigM.S.0, T.0)
+
+assert InitialiseSignals(Test) [T= signal.SigM.S.0.T.0 -> STOP
+assert signal.SigM.S.0.T.0 -> STOP [T= InitialiseSignals(Test) 
 
 
--- InitialiseSpurMonitors = ||| s <- SignalID @ Monitors::InitialiseAll--Monitors::InitialiseSpurMonitor(SigM.s)
+-- InitialiseSpurMonitors = ||| s <- SignalID @ InitialiseAll--InitialiseSpurMonitor(SigM.s)
 -- InitialiseSpurSignals(threads) = 
---   threads [|union(Monitors::events, stateChannels)|] (State ||| InitialiseSpurMonitors)
+--   threads [|union(events, stateChannels)|] (State ||| InitialiseSpurMonitors)
 
 
 -- Spec version of signal
@@ -113,6 +121,7 @@ SingleSignal(t, s) = InitialiseSignals(t) \ diff({|callSignalUpAndWait, callWait
                                     callSignalDown|}, {|callSignalUpAndWait.s, callWaitForSignalUp.s, 
                                     callSignalDown.s|}
                                     )
+
 
 
 -- Lazy abstraction in Roscoes book

@@ -27,7 +27,8 @@ signalChannels = {|callSignalUpAndWait, callWaitForSignalUp, callSignalDown|}
 -- Each of them consist of two stages:
 --  1. Announcing the call and entering the syunchronized block
 --  2. Completing the CSP translation of the original code
-
+Signal :: (SignalID) -> Proc
+Signal(s) = Var(false, (getState.s), (setState.s))
 
 SignalUpAndWait :: (SignalID, ThreadID) -> Proc
 SignalUpAndWait(s, t) = 
@@ -62,23 +63,16 @@ SignalWaitingForFalse(s, t) =
 -- We now initialise the components required to run the heap of Signal
 -- objects
 
---NewInitialiseSignals = 
+RunSystem(threads, sigs) =
+  Monitors::runWith(threads [|stateChannels|] State)
 
-
-OldInitialiseSignals(threads) = 
-  (threads [|union(Monitors::events, stateChannels)|] 
-    (State ||| Monitors::InitialiseAll)) \ union(stateChannels, Monitors::events)
-
-OldNewInitialiseSignals(threads) = 
-  ((threads [|stateChannels|] State) [|Monitors::events|]  Monitors::InitialiseAll) \ union(stateChannels, Monitors::events)
-
+InitialiseAlls = ||| s <- SignalID @ Monitors::InitialiseAll(SigM.s)
 InitialiseSignals(threads) = 
-  Monitors::runWithAll(threads [|stateChannels|] State)  \ union(stateChannels, Monitors::events)
-
-
--- InitialiseSpurMonitors = ||| s <- SignalID @ Monitors::InitialiseAll--Monitors::InitialiseSpurMonitor(SigM.s)
--- InitialiseSpurSignals(threads) = 
---   threads [|union(Monitors::events, stateChannels)|] (State ||| InitialiseSpurMonitors)
+  (threads [|union(Monitors::events, stateChannels)|] 
+    (State ||| InitialiseAlls)) \ union(stateChannels, Monitors::events)
+InitialiseSpurMonitors = ||| s <- SignalID @ Monitors::InitialiseAll(SigM.s)--Monitors::InitialiseSpurMonitor(SigM.s)
+InitialiseSpurSignals(threads) = 
+  threads [|union(Monitors::events, stateChannels)|] (State ||| InitialiseSpurMonitors)
 
 
 -- Spec version of signal
@@ -108,11 +102,6 @@ SpecSignals = || s <- SignalID @ [{|callSignalUpAndWait.s, callWaitForSignalUp.s
 -- Method for barrier-sync to initialise the two objects
 InitialiseSpecSignals(threads) = 
   (SpecSignals [|union(signalChannels, waitChannels)|] threads) \ waitChannels
-
-SingleSignal(t, s) = InitialiseSignals(t) \ diff({|callSignalUpAndWait, callWaitForSignalUp, 
-                                    callSignalDown|}, {|callSignalUpAndWait.s, callWaitForSignalUp.s, 
-                                    callSignalDown.s|}
-                                    )
 
 
 -- Lazy abstraction in Roscoes book

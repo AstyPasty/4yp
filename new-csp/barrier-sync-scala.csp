@@ -1,4 +1,4 @@
-n = 5
+n = 1
 datatype ThreadID = T.{0..n-1}
 --s = S.{0..n-1}
 -- datatype ObjectID = S.{0..n-1} | O.{3}
@@ -6,7 +6,7 @@ datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 datatype MonitorID = SigM.SignalID
 
-include "signal.csp"
+include "signal-scala.csp"
 --include "lock-support.csp"
 
 -- Need a better way here
@@ -71,7 +71,7 @@ BarrierSystem = InitialiseSignals(Threads) \ signalChannels
 
 
 -- Only display the external method calls used by the barrier synchronisation
---BarrierSystemExt = (BarrierSystem) \ union(stateChannels, Monitors::events)
+--BarrierSystemExt = (BarrierSystem) \ union(stateChannels, events)
 --BarrierSystemSpurExt = (BarrierSpurSystem) \ union(stateChannels, MonitorsInst::events)
 --assert BarrierSystemExt [|{|spuriousWakeup|}|] spuriousWakeup?_ ->  DIV :[divergence free]
 --assert BarrierSystemSpurExt :[divergence free]--[|{|spuriousWakeup|}|] spuriousWakeup?_ -> spuriousWakeup?_ -> DIV 
@@ -85,9 +85,9 @@ Spec = (|| t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}] Lineariser(t)
 
 --assert Spec [T= BarrierSystemExt \ signalChannels
 assert BarrierSystem :[divergence free]
-assert not BarrierSystem \ {|Monitors::spuriousWakeup|} :[divergence free]
-assert Spec [T= BarrierSystem \ {|Monitors::spuriousWakeup|}
-assert Spec [F= BarrierSystem \ {|Monitors::spuriousWakeup|}
+assert not BarrierSystem \ {|spuriousWakeup|} :[divergence free]
+assert Spec [T= BarrierSystem \ {|spuriousWakeup|}
+assert Spec [F= BarrierSystem \ {|spuriousWakeup|}
 --assert Spec [FD= BarrierSystemExt \ signalChannels
 
 -- Stable failures

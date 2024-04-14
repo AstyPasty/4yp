@@ -4,67 +4,83 @@
 -- non-hardcoded number of monitor instances
 
 -- Events for monitor actions
-channel acquire, release: ObjectID . ThreadID
-channel wait, timedAwait: ObjectID . ThreadID 
-channel notify: ObjectID . ThreadID . ThreadID
-channel notifyAll: ObjectID . ThreadID 
+-- channel acquire, release: ObjectID . ThreadID
+-- channel wait, timedAwait: ObjectID . ThreadID 
+-- channel notify: ObjectID . ThreadID . ThreadID
+-- channel notifyAll: ObjectID . ThreadID 
+
+-- TODO: Make more polymorphic
+channel acquire, release: Monitor . ThreadID
+channel wait, timedAwait: Monitor . ThreadID 
+channel notify: Monitor . ThreadID . ThreadID
+channel notifyAll: Monitor . ThreadID 
+
+-- channel acquire, release: SignalID . ThreadID
+-- channel wait, timedAwait: SignalID . ThreadID 
+-- channel notify: SignalID . ThreadID . ThreadID
+-- channel notifyAll: SignalID . ThreadID 
 
 -- We use a set waiting ::{ThreadID} to record those threads waiting.
 
 -- The monitor in the unlocked state.  waiting records those threads waiting.
 -- Unlocked :: ({ThreadID}) -> Proc
-Unlocked(waiting) =
+Unlocked(obj, waiting) =
   -- Note: we don't allow waiting threads to acquire the lock. 
-  acquire?t:diff(ThreadID, waiting) -> Locked(t, waiting)
+  acquire.obj?t:diff(ThreadID, waiting) -> Locked(obj, t, waiting)
   []
-  spuriousWakeup?t:waiting -> Unlocked(diff(waiting,{t}))
+  spuriousWakeup.obj?t:waiting -> Unlocked(obj, diff(waiting,{t}))
 
 -- The monitor locked by t.
 -- Locked :: (ThreadID, {ThreadID}) -> Proc 
-Locked(t, waiting) = 
-  release.t -> Unlocked(waiting)
+Locked(obj, t, waiting) = 
+  release.obj.t -> Unlocked(obj, waiting)
   []
-  wait.t -> Unlocked(union(waiting, {t}))
+  wait.obj.t -> Unlocked(obj, union(waiting, {t}))
   []
-  notify.t?t':waiting -> Locked(t, diff(waiting, {t'}))
+  notify.obj.t?t':waiting -> Locked(obj, t, diff(waiting, {t'}))
   []
   -- Avoid blocking signals if no thread waiting
-  empty(waiting) & notify.t.t -> Locked(t, waiting)
+  empty(waiting) & notify.obj.t.t -> Locked(obj, t, waiting)
   []
-  notifyAll.t -> Locked(t, {})
+  notifyAll.obj.t -> Locked(obj, t, {})
   []
-  spuriousWakeup?t':waiting -> Locked(t, diff(waiting,{t'}))
+  spuriousWakeup.obj?t':waiting -> Locked(obj, t, diff(waiting,{t'}))
 
 -- Regulator on spurious wakeups
 Reg = CHAOS({|spuriousWakeup|})
 
-channel spuriousWakeup : ThreadID
+-- TODO: make more polymorphic
+--channel spuriousWakeup : ObjectID . ThreadID
+channel spuriousWakeup : Monitor . ThreadID
 
 -- All events except spuriousWakeup
 events = {| acquire, release, wait, notify, notifyAll |}
 
-runWith(P) = P [| events |] (Unlocked({})  [| {|spuriousWakeup|} |] Reg)
+InitialiseAll(mon) = (Unlocked(mon, {})  [| {|spuriousWakeup|} |] STOP)
+InitialiseSpurMonitor(mon) = (Unlocked(mon, {})  [| {|spuriousWakeup|} |] Reg)
+
+runWith(obj, P) = P [| events |] (Unlocked(obj, {})  [| {|spuriousWakeup|} |] Reg)
 
 -- Interface to threads.
 
 -- Lock the monitor
-Lock(t) = acquire.t -> SKIP
+Lock(obj, t) = acquire.obj.t -> SKIP
 
 -- Unlock the monitor
-Unlock(t) = release.t -> SKIP
+Unlock(obj, t) = release.obj.t -> SKIP
 
 -- Perform P under mutual exclusion
-Synchronized(t, P) = Lock(t); P; Unlock(t)
+Synchronized(obj, t, P) = Lock(obj, t); P; Unlock(obj, t)
 
 -- Perform P under mutual exclusion, and apply cont to the result. 
 -- MutexC :: (ThreadID, ((a) -> Proc) -> Proc, (a) -> Proc) -> Proc
-SynchronizedC(t, P, cont) = Lock(t); P(\ x @ Unlock(t); cont(x))
+SynchronizedC(obj, t, P, cont) = Lock(obj, t); P(\ x @ Unlock(obj, t); cont(x))
 
 -- Perform a wait(), and then regain the lock.
-Wait(t) = wait.t -> acquire.t -> SKIP 
+Wait(obj, t) = wait.obj.t -> acquire.obj.t -> SKIP 
 
 -- perform a notify()
-Notify(t) = notify.t?t' -> SKIP
+Notify(obj, t) = notify.obj.t?t' -> SKIP
 
 -- perform a notifyAll()
-NotifyAll(t) = notifyAll.t -> SKIP
+NotifyAll(obj, t) = notifyAll.obj.t -> SKIP

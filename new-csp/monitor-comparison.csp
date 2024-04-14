@@ -1,0 +1,187 @@
+n = 4
+datatype ThreadID = T.{0..n-1}
+datatype SignalID = S.{0..n-1}
+datatype MonitorID = SigM.SignalID
+datatype ConditionID = C.{0..2}
+
+include "JVMMonitorModule.csp"
+-- The JVM monitor model
+instance JVMM = JVMMonitor(MonitorID)
+
+include "scl-monitor-3.csp"
+
+-- Note that this is not a direct translation of an SCL monitor using 
+-- ParkSupport; it is instead slightly simpler for modelling purposes
+instance SCLSM = SpecSCLMonitor
+
+-- This will include the version of the SCL monitor based on a 
+-- ParkSupport implementation; this is currently a WIP
+include "scl-monitor.csp"
+
+
+-- A very general correct usage of either an SCL or JVM monitor
+-- Threads here aren't allowed to terminate; this could be modified to
+-- include that but I don't feel like theres much to gain from it
+
+ThreadSCL(t) = SCLSM::Lock(SigM.S.0, t); ThreadSCL1(t)
+ThreadSCL1(t) = (SCLSM::Await(SigM.S.0, t, C.0); ThreadSCL1(t))
+                [] (SCLSM::Signal(SigM.S.0, t, C.0); ThreadSCL1(t))
+                [] (SCLSM::SignalAll(SigM.S.0, t, C.0); ThreadSCL1(t))
+                [] SCLSM::Unlock(SigM.S.0, t); ThreadSCL(t)
+
+ThreadJVM(t) = JVMM::Lock(SigM.S.0, t); ThreadJVM1(t)
+ThreadJVM1(t) = (JVMM::Wait(SigM.S.0, t); ThreadJVM1(t))
+                [] (JVMM::Notify(SigM.S.0, t); ThreadJVM1(t))
+                [] (JVMM::NotifyAll(SigM.S.0, t); ThreadJVM1(t))
+                [] JVMM::Unlock(SigM.S.0, t); ThreadJVM(t)
+
+-- Initialise systems of multiples of the threads above operating on 
+-- the same monitor in parallel. Note that here we block spurious wakeups
+
+ThreadsSCL = ||| t <- ThreadID @ ThreadSCL(t)
+ThreadsJVM = (||| t <- ThreadID @ ThreadJVM(t))
+
+SCLSystem = SCLSM::runWith(ThreadsSCL, SigM.S.0)
+-- Note that we block spurious wakeups here; this is because we don't 
+-- (currently) allow internal spurious wakeups inside the SCL monitor 
+-- and is hence easier to check refinement on.
+-- Would be worth noting that spurious wakeups are rare and should be 
+-- guarded against in well-written code
+-- Probably worth showing that the spec refinements break with 
+-- spurious wakeups allowed in the JVM monitor but not in the SCL 
+-- monitor and hence the benefits of using the SCL monitor
+JVMSystem = JVMM::runWith(SigM.S.0, ThreadsJVM) [|{|JVMM::spuriousWakeup|}|] STOP
+
+
+-- The following is spec process for a monitor. Since renaming between two 
+-- channels from two different modules seems not to work(?), we instead 
+-- here have a process with the channels given as parameters which can 
+-- be used to show that both the JVM and SCL monitor implementations 
+-- fulfil the spec as required
+-- The arguments are:
+--     (the ThreadID t holding the lock), 
+--     the set of waiting ThreadIDs, 
+--     the monitor identity used by the acquire and release channels, 
+--     the monitor identity includign any condition (for use by notify/wait etc)
+--     the channels used for acquire and releasing the lock
+--     the channels used for notifying/waiting
+
+-- Can also be extended to allow divergences for any non-correct calls
+SpecUnlocked(waiting, mon, monC, acq, rel, notify, notifyAll, wait) = 
+  acq.mon?t:diff(ThreadID, waiting) -> 
+    SpecLocked(t, waiting, mon, monC, acq, rel, notify, notifyAll, wait)
+
+SpecLocked(t, waiting, mon, monC, acq, rel, notify, notifyAll, wait) = 
+     wait.monC.t -> 
+        SpecUnlocked(union(waiting, {t}), mon, monC, acq, rel, notify, notifyAll, wait)
+  [] empty(waiting) & notify.monC.t.t -> 
+        SpecLocked(t, {}, mon, monC, acq, rel, notify, notifyAll, wait)
+  [] not(empty(waiting)) & notify.monC.t?t':waiting -> 
+        SpecLocked(t, diff(waiting, {t'}), mon, monC, acq, rel, notify, notifyAll, wait)
+  [] notifyAll.monC.t -> 
+        SpecLocked(t, {}, mon, monC, acq, rel, notify, notifyAll, wait)
+  [] rel.mon.t -> SpecUnlocked(waiting, mon, monC, acq, rel, notify, notifyAll, wait)
+
+
+-- Initialise the specification processes for both the SCL and JVM monitors
+SpecSCL = SpecUnlocked({}, SigM.S.0, SigM.S.0.C.0, SCLSM::acquire, SCLSM::release, 
+                       SCLSM::signal, SCLSM::signalAll, SCLSM::await)
+SpecJVM = SpecUnlocked({}, SigM.S.0, SigM.S.0, JVMM::acquire, JVMM::release, 
+                       JVMM::notify, JVMM::notifyAll, JVMM::wait)
+
+-- Both satisfy refinement under failures-divergences
+assert SpecSCL :[divergence free]
+assert SpecSCL [FD= SCLSystem
+assert SpecJVM [FD= JVMSystem
+
+-- I think this refinement is sufficient to show correctness of a monitor:
+--  - Traces shows that the spec and implementations can perform the 
+--    same operations at the same time
+--  - Failures show that these have the same rejections and that any 
+--    thread can be signalled to wake up/acquire the monitor at any 
+--    point whilst not waiting etc.
+--  - Divergence free (without spurious-wakeups); a generally 
+--    important safety property to have
+
+-- The main synchronisation between threads is performed between wait 
+-- and notify/notifyAll (or translations). By the definition of Wait 
+-- we have that the thread can't proceed until the next 
+-- notify/notifyAll call so there aren't currently any useful 
+-- linearisation tests here to be done. This is probably much more 
+-- useful if we allow spuriousWakeups and then we can show that any 
+-- contnuing thread without a spuriousWakeup must be as a result of 
+-- this synchronisation
+
+--Results below are same as above
+-- SpecSUnlocked(waiting, mon, c) = 
+--    SCLSM::acquire.mon?t:diff(ThreadID, waiting) -> SpecSLocked(t, waiting, mon, c)
+
+-- SpecSLocked(t, waiting, mon, c) = 
+--      SCLSM::await.mon.c.t -> SpecSUnlocked(union(waiting, {t}), mon, c)
+--   [] empty(waiting) & SCLSM::signal.mon.c.t.t -> SpecSLocked(t, {}, mon, c)
+--   [] not(empty(waiting)) & SCLSM::signal.mon.c.t?t':waiting -> SpecSLocked(t, diff(waiting, {t'}), mon, c)
+--   [] SCLSM::signalAll.mon.c.t -> SpecSLocked(t, {}, mon, c)
+--   [] SCLSM::release.mon.t -> SpecSUnlocked(waiting, mon, c)
+
+
+-- assert SpecSUnlocked({}, SigM.S.0, C.0) [T= SCLSystem
+-- assert SpecSUnlocked({}, SigM.S.0, C.0) [F= SCLSystem
+-- assert SpecSUnlocked({}, SigM.S.0, C.0) [FD= SCLSystem
+
+-- SpecJUnlocked(waiting, mon) = 
+--    JVMM::acquire.mon?t:diff(ThreadID, waiting) -> SpecJLocked(t, waiting, mon)
+
+-- SpecJLocked(t, waiting, mon) = 
+--      JVMM::wait.mon.t -> SpecJUnlocked(union(waiting, {t}), mon)
+--   [] empty(waiting) & JVMM::notify.mon.t.t -> SpecJLocked(t, {}, mon)
+--   [] not(empty(waiting)) & JVMM::notify.mon.t?t':waiting -> SpecJLocked(t, diff(waiting, {t'}), mon)
+--   [] JVMM::notifyAll.mon.t -> SpecJLocked(t, {}, mon)
+--   [] JVMM::release.mon.t -> SpecJUnlocked(waiting, mon)
+
+-- assert SpecJUnlocked({}, SigM.S.0) [T= JVMSystem
+-- assert SpecJUnlocked({}, SigM.S.0) [F= JVMSystem
+-- assert SpecJUnlocked({}, SigM.S.0) [FD= JVMSystem
+
+
+-- assert acq.SigM.S.0.T.0 -> STOP [T= ThreadsJVMR2
+-- assert ThreadsJVMR2 [T= acq.SigM.S.0.T.0 -> STOP
+
+-- assert JVMM::acquire.SigM.S.0.T.0 -> STOP [T= ThreadsJVMR2
+-- assert ThreadsJVMR2 [T= JVMM::acquire.SigM.S.0.T.0 -> STOP
+
+-- assert ThreadsSCLR [T= ThreadsJVMR
+-- assert ThreadsJVMR [T= ThreadsSCLR                 
+
+-- assert SCLSM::runWith(ThreadsSCL, SigM.S.0) :[divergence free]
+-- assert SCLSM::runWith(ThreadsSCL, SigM.S.0) :[deadlock free]
+
+-- instance SCLM = SCLMonitor
+
+-- assert SCLM::InitialiseMon(SigM.S.0, C.0) :[divergence free]
+-- assert SCLM::InitialiseMon(SigM.S.0, C.0) [T= STOP
+-- assert STOP [T= SCLM::InitialiseMon(SigM.S.0, C.0)
+
+-- ThreadSCL(t) = SCLM::Lock(SigM.S.0, C.0, t); ThreadSCL1(t)
+-- ThreadSCL1(t) = (SCLM::Await(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
+--                 [] (SCLM::Signal(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
+--                 [] (SCLM::SignalAll(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
+
+-- --assert SCLM::InitialiseMon(SigM.S.0, C.0) [T= SCLM::park.SigM.S.0.C.0.T.1 -> SCLM::unpark.SigM.S.0.C.0.T.0.T.1 -> SCLM::wakeUp.SigM.S.0.C.0.T.1.true-> STOP
+
+-- ThreadsSCL = ||| t <- ThreadID @ ThreadSCL(t)
+
+-- assert SCLM::runWith(ThreadsSCL, SigM.S.0, C.0) :[divergence free]
+-- assert SCLM::runWith(ThreadsSCL, SigM.S.0, C.0) :[deadlock free]
+
+
+--include "JVMMonitorModule.csp"
+
+-- instance JVMMonitors = JVMMonitor(MonitorID)
+
+-- assert LockSupport0(X) :[divergence-free]
+
+-- assert not LockSupport0(X) :[divergence-free]
+
+-- assert  LockSupport0(X) [T= park.X.T.1 -> unpark.X.T.0.T.1 -> wakeUp.X.T.1.true-> STOP
+
+-- assert JVMMonitors::Unlocked(SigM.S.0) [T= Lock(mon)

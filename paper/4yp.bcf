@@ -2344,10 +2344,9 @@
     <bcf:datasource type="file" datatype="bibtex" glob="false">references.bib</bcf:datasource>
   </bcf:bibdata>
   <bcf:section number="0">
-    <bcf:citekey order="1">TAoMP</bcf:citekey>
-    <bcf:citekey order="2">TAoMP</bcf:citekey>
-    <bcf:citekey order="3">TAoMP</bcf:citekey>
-    <bcf:citekey order="4">TAoMP</bcf:citekey>
+    <bcf:citekey order="2">Flight501Failure</bcf:citekey>
+    <bcf:citekey order="3">MicroTest</bcf:citekey>
+    <bcf:citekey order="4">LoweLin</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="nty">

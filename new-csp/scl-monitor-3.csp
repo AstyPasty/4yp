@@ -1,0 +1,63 @@
+module SpecSCLMonitor
+
+   -- A map from ConditionID => {ThreadIDs} is used to store the 
+   -- waiting threads on any condition at any point in time; this felt
+   -- like the easiest choice
+
+   -- Two macros to create the map and to get all waiting threads
+   init = mapFromList(<(c, {}) | c <- seq(ConditionID)>)
+   values(map) = Union({mapLookup(map, cnd) | cnd <- ConditionID})
+
+
+  Unlocked :: (MonitorID, (| ConditionID=>{ThreadID} |)) -> Proc 
+   Unlocked(mon, waiting) =
+         acquire.mon?t:diff(ThreadID, values(waiting)) 
+            -> Locked(mon, t, waiting)
+
+   Locked :: (MonitorID, ThreadID, (| ConditionID=>{ThreadID} |)) -> Proc 
+   Locked(mon, t, waiting) = 
+         release.mon.t -> Unlocked(mon, waiting)
+      [] await.mon?cnd:ConditionID!t -> (let ts = mapLookup(waiting, cnd) within 
+                                 Unlocked(mon, mapUpdate(waiting, cnd, union({t},ts))))
+      [] 
+         ([] cnd: ConditionID @ let cndWaiting = mapLookup(waiting, cnd) within
+            signal.mon.cnd.t?t':cndWaiting -> 
+               Locked(mon, t, mapUpdate(waiting, cnd, diff(cndWaiting, {t'})))
+         [] empty(cndWaiting) & signal.mon.cnd.t.t -> Locked(mon,t, waiting))
+      [] signalAll.mon?cnd!t -> Locked(mon, t, mapUpdate(waiting, cnd, {}))
+
+
+exports
+   -- Channels currently exported for manipulation inside monitor-comparison
+   channel acquire, release: MonitorID.ThreadID
+   channel await, signalAll: MonitorID.ConditionID.ThreadID
+   channel signal: MonitorID.ConditionID.ThreadID.ThreadID
+   channel spuriousWakeup : MonitorID.ThreadID
+
+   -- All events except spuriousWakeup
+   events = {|acquire, release, await,signal, signalAll|}
+
+   InitialiseMon(mon) = Unlocked(mon, init)
+
+   runWith(P, mon) = P [| events |] Unlocked(mon, init)
+   
+      -- Lock the monitor
+   Lock(mon, t) = acquire.mon.t -> SKIP
+   
+   -- Unlock the monitor
+   Unlock :: (MonitorID, ThreadID) -> Proc
+   Unlock(mon, t) = release.mon.t -> SKIP
+
+   -- Perform P under mutual exclusion
+   Mutex(mon, t, P) = Lock(mon, t); P; Unlock(mon, t)
+
+   -- Perform an await() on c, and then regain the lock.
+   Await(mon, t,c) = await.mon.c.t -> acquire.mon.t -> SKIP 
+
+   -- perform a signal()
+   Signal(mon, t,c) = signal.mon.c.t?t':ThreadID -> SKIP
+
+   -- perform a signallAll()
+   SignalAll(mon, t,c) = signalAll.mon.c.t -> SKIP
+
+endmodule                                    

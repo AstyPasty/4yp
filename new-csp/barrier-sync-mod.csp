@@ -1,4 +1,4 @@
-n = 5
+n = 3
 datatype ThreadID = T.{0..n-1}
 --s = S.{0..n-1}
 -- datatype ObjectID = S.{0..n-1} | O.{3}
@@ -6,8 +6,7 @@ datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 datatype MonitorID = SigM.SignalID
 
-include "signal.csp"
---include "lock-support.csp"
+include "signal-mod.csp"
 
 -- Need a better way here
 
@@ -59,9 +58,13 @@ Sync(T.me) =
 
 
 Threads = ||| t : ThreadID @ Thread(t)
-BarrierSystem = InitialiseSignals(Threads) \ signalChannels
+--BarrierSystem = InitialiseSignals(Threads)--[||]
+BarrierSystem = InitialiseSignals(Threads)
 
---NewBarrierSystem = NewInitialiseSignals(Threads)
+BarrierSystemNew = RunSystem(Threads, SignalID) |||Threads
+BarrierSystemNewExt = (BarrierSystemNew) \ Union({stateChannels, Monitors::events, signalChannels})
+
+--BarrierSystemTest = ||| t:
 
 -- Would only diverge if assertions fail
 --assert BarrierSystem :[divergence free]
@@ -72,7 +75,7 @@ BarrierSystem = InitialiseSignals(Threads) \ signalChannels
 
 -- Only display the external method calls used by the barrier synchronisation
 --BarrierSystemExt = (BarrierSystem) \ union(stateChannels, Monitors::events)
---BarrierSystemSpurExt = (BarrierSpurSystem) \ union(stateChannels, MonitorsInst::events)
+--BarrierSystemExt = (BarrierSystem) \ union(stateChannels, Monitors::events)
 --assert BarrierSystemExt [|{|spuriousWakeup|}|] spuriousWakeup?_ ->  DIV :[divergence free]
 --assert BarrierSystemSpurExt :[divergence free]--[|{|spuriousWakeup|}|] spuriousWakeup?_ -> spuriousWakeup?_ -> DIV 
 --assert not BarrierSystemSpurExt \ {|spuriousWakeup|} :[divergence free]
@@ -84,15 +87,18 @@ Lineariser(t) = beginSync.t -> sync -> endSync.t -> Lineariser(t)
 Spec = (|| t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}] Lineariser(t)) \ {sync}
 
 --assert Spec [T= BarrierSystemExt \ signalChannels
-assert BarrierSystem :[divergence free]
-assert not BarrierSystem \ {|Monitors::spuriousWakeup|} :[divergence free]
-assert Spec [T= BarrierSystem \ {|Monitors::spuriousWakeup|}
-assert Spec [F= BarrierSystem \ {|Monitors::spuriousWakeup|}
+--assert Spec [T= BarrierSystemSpurExt \ union(signalChannels, {|spuriousWakeup|})
+--assert Spec [F= BarrierSystemExt \ signalChannels
 --assert Spec [FD= BarrierSystemExt \ signalChannels
+assert Spec [F= BarrierSystem \ union({|Monitors::spuriousWakeup|}, signalChannels)
+assert Spec [FD= BarrierSystem \ union({|Monitors::spuriousWakeup|}, signalChannels)
 
 -- Stable failures
 --assert Spec [F= BarrierSystemSpurExt \ union(signalChannels, {|spuriousWakeup|})
 --assert Spec [FD= BarrierSystemSpurExt \ union(signalChannels, {|spuriousWakeup|})
+
+assert Spec [F= BarrierSystemNewExt
+assert BarrierSystemNewExt [F= Spec
 
 
 -- Correctness check that no sync can happen after a thread has terminated
@@ -102,8 +108,6 @@ Termination = end?_ -> sync -> DIV
 -- Note that both of these are very slow for even moderate n
 --assert BarrierSystemSpurExt:[divergence free]
 --assert BarrierSystemSpurExt [|union({|end|}, {sync})|] Termination :[divergence free]
-
---SingleSpec = InitialiseSignals \ diff
 
 
 

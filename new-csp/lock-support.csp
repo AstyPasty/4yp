@@ -7,12 +7,12 @@ channel unpark: MonitorID.ConditionID.ThreadID.ThreadID
 LockSupport0 :: (MonitorID, ConditionID) -> Proc
 LockSupport0(m, c) = LockSupport(m, c, {}, {})
 LockSupport1(m, c, waiting, permits) =
-  park.m.c?t:diff(ThreadID, waiting) -> (
+  park.m.c?t-> (--:diff(ThreadID, waiting) -> (
     if member(t, permits)
       then wakeUp.m.c.t.true -> LockSupport(m, c, waiting, diff(permits, {t}))
     else LockSupport(m, c, union(waiting, {t}), permits) )
   []
-  unpark.m.c?t:diff(ThreadID, waiting)?t2:waiting -> (
+  unpark.m.c?t?t2-> ( --):diff(ThreadID, waiting)?t2:waiting -> (
     if member(t2, waiting)
       then wakeUp.m.c.t2.true -> LockSupport(m, c, diff(waiting, {t2}), permits)
     else LockSupport(m, c, waiting, union(permits, {t2})))
@@ -23,9 +23,9 @@ LockSupport(m, c, waiting, permits) =
   if waiting == {} then LockSupport1(m, c, waiting, permits)
   else (LockSupport1(m, c, waiting, permits)
     --|~| wakeUp$t:waiting -> LockSupport(diff(waiting, {t}), permits) 
-    |~| wakeUp.m.c$t:waiting!false -> LockSupport(m, c, diff(waiting, {t}), permits) )
+    )--|~| wakeUp.m.c$t:waiting!false -> LockSupport(m, c, diff(waiting, {t}), permits) )
 
-InitLockSupp(m, c) = LockSupport0(m, c) \ {|park,unpark|}--\ {|park|}--, unpark|}
+InitLockSupp(m, c) = LockSupport0(m, c) --\ {|park,unpark|}--\ {|park|}--, unpark|}
 
 Park(m, c, t) = park.m.c.t -> wakeUp.m.c.t?_ ->  SKIP
 

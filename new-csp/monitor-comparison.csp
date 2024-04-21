@@ -1,8 +1,8 @@
-n = 4
+n = 3
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 datatype MonitorID = SigM.SignalID
-datatype ConditionID = C.{0..2}
+datatype ConditionID = C.{0}--..2}
 
 include "JVMMonitorModule.csp"
 -- The JVM monitor model
@@ -16,18 +16,26 @@ instance SCLSM = SpecSCLMonitor
 
 -- This will include the version of the SCL monitor based on a 
 -- ParkSupport implementation; this is currently a WIP
-include "scl-monitor.csp"
+include "scl-monitor-new-new.csp"
+
+instance SCL = SCLMonitor
 
 
 -- A very general correct usage of either an SCL or JVM monitor
 -- Threads here aren't allowed to terminate; this could be modified to
 -- include that but I don't feel like theres much to gain from it
 
-ThreadSCL(t) = SCLSM::Lock(SigM.S.0, t); ThreadSCL1(t)
-ThreadSCL1(t) = (SCLSM::Await(SigM.S.0, t, C.0); ThreadSCL1(t))
-                [] (SCLSM::Signal(SigM.S.0, t, C.0); ThreadSCL1(t))
-                [] (SCLSM::SignalAll(SigM.S.0, t, C.0); ThreadSCL1(t))
-                [] SCLSM::Unlock(SigM.S.0, t); ThreadSCL(t)
+ThreadSCLSM(t) = SCLSM::Lock(SigM.S.0, t); ThreadSCLSM1(t)
+ThreadSCLSM1(t) = (SCLSM::Await(SigM.S.0, C.0, t); ThreadSCLSM1(t))
+                [] (SCLSM::Signal(SigM.S.0, C.0, t); ThreadSCLSM1(t))
+                [] (SCLSM::SignalAll(SigM.S.0, C.0, t); ThreadSCLSM1(t))
+                [] (SCLSM::Unlock(SigM.S.0, t); ThreadSCLSM(t))
+
+ThreadSCL(t) = SCL::Lock(SigM.S.0, C.0, t); ThreadSCL1(t)
+ThreadSCL1(t) = (SCL::Await(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::Signal(SigM.S.0, C.0, t); ThreadSCL1(t))
+                --[] (SCL::SignalAll(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::Unlock(SigM.S.0, C.0, t); ThreadSCL(t))
 
 ThreadJVM(t) = JVMM::Lock(SigM.S.0, t); ThreadJVM1(t)
 ThreadJVM1(t) = (JVMM::Wait(SigM.S.0, t); ThreadJVM1(t))
@@ -39,9 +47,11 @@ ThreadJVM1(t) = (JVMM::Wait(SigM.S.0, t); ThreadJVM1(t))
 -- the same monitor in parallel. Note that here we block spurious wakeups
 
 ThreadsSCL = ||| t <- ThreadID @ ThreadSCL(t)
+ThreadsSCLSM = ||| t <- ThreadID @ ThreadSCLSM(t)
 ThreadsJVM = (||| t <- ThreadID @ ThreadJVM(t))
 
-SCLSystem = SCLSM::runWith(ThreadsSCL, SigM.S.0)
+SCLSystem = SCL::runWith(ThreadsSCL, SigM.S.0, C.0)
+SCLSMSystem = SCLSM::runWith(ThreadsSCLSM, SigM.S.0)
 -- Note that we block spurious wakeups here; this is because we don't 
 -- (currently) allow internal spurious wakeups inside the SCL monitor 
 -- and is hence easier to check refinement on.
@@ -67,32 +77,71 @@ JVMSystem = JVMM::runWith(SigM.S.0, ThreadsJVM) [|{|JVMM::spuriousWakeup|}|] STO
 --     the channels used for notifying/waiting
 
 -- Can also be extended to allow divergences for any non-correct calls
-SpecUnlocked(waiting, mon, monC, acq, rel, notify, notifyAll, wait) = 
-  acq.mon?t:diff(ThreadID, waiting) -> 
-    SpecLocked(t, waiting, mon, monC, acq, rel, notify, notifyAll, wait)
+SpecUnlocked(waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel) = 
+    cAcq.monC?t:diff(ThreadID, union(set(waiting), poss)) -> SpecUnlocked(waiting, union(poss, {t}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] acq.monC?t:poss -> 
+      SpecLocked(t, false, false, waiting, diff(poss, {t}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
 
-SpecLocked(t, waiting, mon, monC, acq, rel, notify, notifyAll, wait) = 
-     wait.monC.t -> 
-        SpecUnlocked(union(waiting, {t}), mon, monC, acq, rel, notify, notifyAll, wait)
-  [] empty(waiting) & notify.monC.t.t -> 
-        SpecLocked(t, {}, mon, monC, acq, rel, notify, notifyAll, wait)
-  [] not(empty(waiting)) & notify.monC.t?t':waiting -> 
-        SpecLocked(t, diff(waiting, {t'}), mon, monC, acq, rel, notify, notifyAll, wait)
-  [] notifyAll.monC.t -> 
-        SpecLocked(t, {}, mon, monC, acq, rel, notify, notifyAll, wait)
-  [] rel.mon.t -> SpecUnlocked(waiting, mon, monC, acq, rel, notify, notifyAll, wait)
+SpecLocked(t, toWait, toRel,  waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel) = 
+     (not(toWait) and not(toRel)) & wait.monC.t -> 
+        SpecLocked(t, true, false, waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] (toWait and not(toRel)) & rel.monC.t ->
+        SpecUnlocked(waiting^<t>, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel) and null(waiting)) & notify.monC.t -> 
+        SpecLocked(t, false, false, <>, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel) and not(null(waiting))) & notify.monC.t -> 
+        SpecLocked(t, false, false, tail(waiting), union(poss, {head(waiting)}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  -- [] (not(toWait) and not(toRel)) & notifyAll.monC.t -> 
+  --       SpecLocked(t, false, false, <>, union(poss, set(waiting)), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel)) & cRel.monC.t -> 
+        SpecLocked(t, false, true, waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)  
+  [] (not(toWait) and toRel) & rel.monC.t -> 
+        SpecUnlocked(waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] cAcq.monC?t':diff(ThreadID, Union({set(waiting), poss, {t}})) ->
+        SpecLocked(t, toWait, toRel, waiting, union(poss, {t'}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+
+-- SpecUnlocked(waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel) = 
+--     cAcq.monC?t:diff(ThreadID, union(waiting, poss)) -> SpecUnlocked(waiting, union(poss, {t}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] acq.monC?t:poss -> 
+--       SpecLocked(t, false, false, waiting, diff(poss, {t}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+
+-- SpecLocked(t, toWait, toRel,  waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel) = 
+--      (not(toWait) and not(toRel)) & wait.monC.t -> 
+--         SpecLocked(t, true, false, waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] (toWait and not(toRel)) & rel.monC.t ->
+--         SpecUnlocked(union(waiting, {t}), poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] (not(toWait) and not(toRel) and empty(waiting)) & notify.monC.t.t -> 
+--         SpecLocked(t, false, false, {}, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] (not(toWait) and not(toRel) and not(empty(waiting))) & notify.monC.t?t':waiting -> 
+--         SpecLocked(t, false, false, diff(waiting, {t'}), union(poss, {t}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] (not(toWait) and not(toRel)) & notifyAll.monC.t -> 
+--         SpecLocked(t, false, false, {}, union(poss, waiting), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+--   [] (not(toWait) and not(toRel)) & cRel.monC.t -> 
+--         SpecLocked(t, false, true, waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)  
+--   [] (not(toWait) and toRel) & rel.monC.t -> 
+--         SpecUnlocked(waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
 
 
 -- Initialise the specification processes for both the SCL and JVM monitors
-SpecSCL = SpecUnlocked({}, SigM.S.0, SigM.S.0.C.0, SCLSM::acquire, SCLSM::release, 
-                       SCLSM::signal, SCLSM::signalAll, SCLSM::await)
-SpecJVM = SpecUnlocked({}, SigM.S.0, SigM.S.0, JVMM::acquire, JVMM::release, 
-                       JVMM::notify, JVMM::notifyAll, JVMM::wait)
+SpecSCL = (SpecUnlocked(<>, {},SigM.S.0, SigM.S.0.C.0, SCL::acquire, SCL::release, --SCL::callAcquire, SCL::callRelease, 
+--                       SCL::signal, SCL::callSignalAll, SCL::callAwait, SCL::callAcquire, SCL::callRelease) [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+                       SCL::callSignal, SCL::callSignalAll, SCL::callAwait, SCL::callAcquire, SCL::callRelease)) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+--SpecSCLSM = SpecUnlocked({}, SigM.S.0, SigM.S.0.C.0, SCLSM::acquire, SCLSM::release, 
+--                       SCLSM::signal, SCLSM::signalAll, SCLSM::await)
+--SpecJVM = SpecUnlocked({}, {}, SigM.S.0, SigM.S.0, JVMM::acquire, JVMM::release, 
+--                       JVMM::notify, JVMM::notifyAll, JVMM::wait)
 
 -- Both satisfy refinement under failures-divergences
 assert SpecSCL :[divergence free]
-assert SpecSCL [FD= SCLSystem
-assert SpecJVM [FD= JVMSystem
+assert (SpecSCL) [T= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t| t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+assert (SpecSCL) [F= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+assert (SpecSCL) [FD= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+--assert SpecJVM [FD= JVMSystem
+
+-- assert (SpecSCL [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]]) [T= (SCLSystem [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+-- assert (SpecSCL [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]]) [F= (SCLSystem [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+-- assert (SpecSCL [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]]) [FD= (SCLSystem [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+
 
 -- I think this refinement is sufficient to show correctness of a monitor:
 --  - Traces shows that the spec and implementations can perform the 
@@ -161,14 +210,14 @@ assert SpecJVM [FD= JVMSystem
 -- assert SCLM::InitialiseMon(SigM.S.0, C.0) [T= STOP
 -- assert STOP [T= SCLM::InitialiseMon(SigM.S.0, C.0)
 
--- ThreadSCL(t) = SCLM::Lock(SigM.S.0, C.0, t); ThreadSCL1(t)
--- ThreadSCL1(t) = (SCLM::Await(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
---                 [] (SCLM::Signal(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
---                 [] (SCLM::SignalAll(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCL(t)
+-- ThreadSCLSM(t) = SCLM::Lock(SigM.S.0, C.0, t); ThreadSCLSM1(t)
+-- ThreadSCLSM1(t) = (SCLM::Await(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCLSM(t)
+--                 [] (SCLM::Signal(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCLSM(t)
+--                 [] (SCLM::SignalAll(SigM.S.0, C.0, t); SCLM::Unlock(SigM.S.0, C.0, t)); ThreadSCLSM(t)
 
 -- --assert SCLM::InitialiseMon(SigM.S.0, C.0) [T= SCLM::park.SigM.S.0.C.0.T.1 -> SCLM::unpark.SigM.S.0.C.0.T.0.T.1 -> SCLM::wakeUp.SigM.S.0.C.0.T.1.true-> STOP
 
--- ThreadsSCL = ||| t <- ThreadID @ ThreadSCL(t)
+-- ThreadsSCL = ||| t <- ThreadID @ ThreadSCLSM(t)
 
 -- assert SCLM::runWith(ThreadsSCL, SigM.S.0, C.0) :[divergence free]
 -- assert SCLM::runWith(ThreadsSCL, SigM.S.0, C.0) :[deadlock free]

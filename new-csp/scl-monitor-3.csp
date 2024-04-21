@@ -52,12 +52,12 @@ exports
    Mutex(mon, t, P) = Lock(mon, t); P; Unlock(mon, t)
 
    -- Perform an await() on c, and then regain the lock.
-   Await(mon, t,c) = await.mon.c.t -> acquire.mon.t -> SKIP 
+   Await(mon, c, t) = await.mon.c.t -> acquire.mon.t -> SKIP 
 
    -- perform a signal()
-   Signal(mon, t,c) = signal.mon.c.t?t':ThreadID -> SKIP
+   Signal(mon, c, t) = signal.mon.c.t?t':ThreadID -> SKIP
 
    -- perform a signallAll()
-   SignalAll(mon, t,c) = signalAll.mon.c.t -> SKIP
+   SignalAll(mon, c, t) = signalAll.mon.c.t -> SKIP
 
 endmodule                                    

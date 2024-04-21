@@ -1,0 +1,145 @@
+module SCLMonitor
+
+-- Needs to be puts together in parallel for running and then analysis
+
+include "lock-support.csp"
+
+--instance Locks = LockSupport--(MonitorID, ConditionID)
+
+
+
+--channel waitingEmpty: MonitorID.ConditionID
+channel enqueue, dequeue, setReady: MonitorID.ConditionID.ThreadID.ThreadID
+channel isReady: MonitorID.ConditionID.ThreadID.ThreadID.Bool
+channel waitingEmpty: MonitorID.ConditionID.ThreadID
+
+
+
+
+
+Waiting :: (MonitorID, ConditionID, <ThreadID>, {ThreadID}) -> Proc
+Waiting(mon, cnd, <>, rs) = 
+       enqueue.mon.cnd?t?t' -> Waiting(mon, cnd, <t'>, rs)
+    [] waitingEmpty.mon.cnd?t -> Waiting(mon, cnd, <>, rs)
+    [] isReady.mon.cnd?t?x!(member(x, rs)) -> Waiting(mon, cnd, <>, diff(rs, {x}))
+    [] setReady.mon.cnd?t?x -> Waiting(mon, cnd, <>, union(rs, {x}))
+Waiting(mon, cnd, <t'>^ts, rs) = 
+       enqueue.mon.cnd?t?u:diff(ThreadID, union(set(ts), {t})) -> Waiting(mon, cnd,  <t'>^ts^<u>, rs)
+    [] dequeue.mon.cnd?t!t' -> Waiting(mon, cnd, ts, rs)
+    [] isReady.mon.cnd?t?x!(member(x, rs)) -> Waiting(mon, cnd, <t'>^ts, diff(rs, {x}))
+    [] setReady.mon.cnd?t?x -> if member(x, rs) then DIV else Waiting(mon, cnd, <t'>^ts, union(rs, {x}))
+
+-- -- Currently assumes correct access behaviour, should be changed
+-- Unlocked(mon, cnd, waiting) = acquire.mon.cnd?t:waiting -> Locked(mon, cnd, diff(waiting, {t}), t)
+-- Locked(mon, cnd, waiting, t) = release.mon.cnd.t -> Unlocked(mon, cnd, waiting)
+--               --[] checkHolder.mon.cnd.t -> Locked(mon, cnd, waiting, t)
+--               [] await.mon.cnd.t -> Unlocked(mon, cnd, union(waiting, {t}))
+
+
+    -- Improve waiting modelling with isReady
+-- Await1(mon, cnd, t) = release.mon.cnd.t ->park.mon.cnd.t -> (wakeUp.mon.cnd.t.true -> setReady.mon.cnd.t -> acquire.mon.cnd.t -> SKIP)
+--     [] (wakeUp.mon.cnd.t.false -> Await1(mon, cnd, t))
+
+Await1(mon, cnd, t) = 
+  enqueue.mon.cnd.t.t -> release.mon.cnd.t -> Await2(mon, cnd, t)
+
+Await2(mon, cnd, t) = isReady.mon.cnd.t.t?b ->
+  if b then wakeUp.mon.cnd.t.true
+    
+Signal1(mon, cnd, t) =  (waitingEmpty.mon.cnd -> SKIP)
+          [] dequeue.mon.cnd?t2 -> isReady.mon.cnd.t2?b ->
+              if b then Signal1(mon, cnd,t) --Thread previously awoken, get new one
+              else setReady.mon.cnd.t2 -> unpark.mon.cnd.t.t2 -> SKIP
+
+SignalAll1(mon, cnd, t) =  (waitingEmpty.mon.cnd -> SKIP)
+    [] dequeue.mon.cnd?t2 -> setReady.mon.cnd.t2 -> unpark.mon.cnd.t.t2 -> SignalAll1(mon, cnd, t)
+
+remove(x, sequence) = remove1(x, <>, sequence)
+remove1(x, pre, suf) = if suf == <> then pre
+                      else if head(suf) == x then pre^tail(suf)
+                      else remove1(x, pre^<head(suf)>, tail(suf))
+
+Unlocked'(mon, cnd, waiting) = 
+    acquire.mon.cnd?t:diff(ThreadID, set(waiting)) -> Locked'(mon, cnd, waiting, t)
+  [] wakeUp.mon.cnd?t':set(waiting)!false -> Unlocked'(mon, cnd, remove(t', waiting))
+
+Locked'(mon, cnd, <>, t) = 
+    release.mon.cnd.t -> Unlocked'(mon, cnd, <>)
+  [] await.mon.cnd.t -> Unlocked'(mon, cnd, <t>)
+  [] signal.mon.cnd.t.t -> Locked'(mon, cnd, <>, t)
+  [] signalAll.mon.cnd.t -> Locked'(mon, cnd, <>, t)
+
+Locked'(mon, cnd, waiting, t) = 
+    release.mon.cnd.t -> Unlocked'(mon, cnd, waiting)
+  [] await.mon.cnd.t -> Unlocked'(mon, cnd, waiting^<t>)
+  [] signal.mon.cnd.t?t':set(waiting) -> wakeUp.mon.cnd.t'.true -> Locked'(mon, cnd, waiting, t)
+  [] signalAll.mon.cnd.t -> Empty'(mon, cnd, waiting, t) --Locked'(mon, cnd, {}, t)
+  [] wakeUp.mon.cnd?t'':set(waiting)!false -> Locked'(mon, cnd, remove(t'', waiting), t)
+  --[] wakeUp.mon.cnd.t'!false -> Locked'(mon, cnd, waiting, t)
+
+-- Locked'(mon, cnd, <t'>^waiting, t) = 
+--     release.mon.cnd.t -> Unlocked'(mon, cnd, waiting)
+--   [] await.mon.cnd.t -> Unlocked'(mon, cnd, <t'>^waiting^<t>)
+--   [] signal.mon.cnd.t?t':waiting -> wakeUp.mon.cnd.t'.true -> Locked'(mon, cnd, waiting, t)
+--   [] signalAll.mon.cnd.t -> Empty'(mon, cnd, waiting, t) --Locked'(mon, cnd, {}, t)
+--   [] wakeUp.mon.cnd?t'':set(waiting)!false -> Locked'(mon, cnd, remove(t'', <t'>, waiting), t)
+--   [] wakeUp.mon.cnd.t'!false -> Locked'(mon, cnd, waiting, t)
+
+Empty'(mon, cnd, <>, t) = Locked'(mon, cnd, <>, t)
+Empty'(mon, cnd, <t'>^ts, t) = wakeUp.mon.cnd.t'.true -> Empty'(mon, cnd, ts, t)
+
+exports
+
+channel acquire, release: MonitorID.ConditionID.ThreadID
+channel await, signalAll: MonitorID.ConditionID.ThreadID
+channel signal: MonitorID.ConditionID.ThreadID.ThreadID
+channel spuriousWakeup : MonitorID.ThreadID
+
+InitialiseMon(mon, cond) = (InitLockSupp(mon, cond) [|{|wakeUp.mon.cond, park.mon.cond, unpark.mon.cond, enqueue.mon.cond, dequeue.mon.cond, setReady.mon.cond, isReady.mon.cond, waitingEmpty.mon.cond|}|] 
+                                (Unlocked'(mon, cond, <>) ||| Waiting(mon, cond, <>, {}))) \ {|enqueue, dequeue, setReady, isReady|}
+                             
+--(InitLockSupp(mon, cond) [|{|wakeUp.mon.cond, park.mon.cond, unpark.mon.cond|}|] 
+--                                 (Unlocked'(mon, cond, <>) [|{|enqueue, dequeue, setReady, isReady, waitingEmpty|}|] Waiting(mon, cond, <>, {}))) \ {|enqueue, dequeue, setReady, isReady|}
+--                              --InitLockSupp(mon, cond) ||| Unlocked'(mon, cond, <>)
+
+runWith(P, mon, cond) = (P [|{|unpark.mon.cond, acquire.mon.cond, release.mon.cond,await.mon.cond,signal.mon.cond,signalAll.mon.cond, wakeUp.mon.cond|}|]
+                            InitialiseMon(mon, cond)) \ {|wakeUp, waitingEmpty, dequeue, enqueue, setReady, isReady|}
+
+-- Pre: hold the lock already
+Await(mon, cnd, t) = await.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Await1(mon, cnd, t)
+
+Signal(mon, cnd, t) = signal.mon.cnd.t?t':ThreadID -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Signal1(mon, cnd, t)
+
+SignalAll(mon, cnd, t) = signalAll.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                            SignalAll1(mon, cnd, t)
+
+Lock(mon, cnd, t) = acquire.mon.cnd.t -> SKIP
+
+Unlock(mon, cnd, t) = release.mon.cnd.t -> SKIP
+
+
+
+endmodule
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                          

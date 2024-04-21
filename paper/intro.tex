@@ -2,11 +2,41 @@
 
 %Speed Up necessity
 
-In a world reliant on computer systems, the correctness of those systems are vital. Indeed, simple programming errors can lead to major, and sometimes fatal, incidents; examples of these include an automated trader losing \$460 million\cite{} and the Ariane flight V88 breaking up after launch due to an overflow error\cite{Flight501Failure}.
+In a world reliant on computer systems, the correctness of those systems are vital. Indeed, simple programming errors can lead to major incidents; examples of these include an automated trader losing \$460 million\cite{KnightCapital} and the inaugural Ariane 5 flight breaking up after launch due to an overflow error\cite{Flight501Failure}. 
 
-There are two main approaches to developing correct software - testing and verification. Though thorough unit testing can be effective in minimising software bugs\cite{MicroTest}, it is significantly less effective with concurrent code. This is predominantly due to the sheer number of different interactions between threads and the requirement to be able to both consider all interactions and model them. Linearizability testing is an effective alternative approach, although again this relies on the random testing of edge cases; clearly this is not exhaustive either\cite{LoweLin}.
+In order to achieve better performance, concurrency can often be introduced to improve the performance programs or systems - especially those with semi-independent tasks or components.
+Concurrent systems, be this on a single computer or distributed across a network, achieve these performance improvements at the cost of additional complexity as the design now needs to consider the interactions and exchange of data between threads. 
+Each of different possible interactions between threads could potentially lead to a \emph{race condition} in a poorly designed systems; this is where two non-independent actions can occur in an order which produces an incorrect or unwanted outcome. 
+%The most famous example of this was in the Therac-25 radiation therapy machine which lead to the deaths of three patients due to overexposure as a result of a race condition in the machine's software where the high radiation beam was selected and quickly changed to the lower radiation beam\cite{BugSnag}. 
+Race conditions can be very damaging in practice - the Therac-25 radiation therapy machine killed three of its patients by radiation overexposure as a result of a race condition\cite{BugSnag}. This was caused by the operator quickly changing from the high radiation beam mode to select the lower radiation beam instead; the race condition resulted in the machine erroneously still using the high radiation beam instead. This highlights the importance of thorough system validation; had more through system validation been completed, these deaths would have likely been avoided\cite{AGift}.
 
-By contrast, formal verification can be used to show that systems satisf\cite{}
+
+%The Therac-25 radiation therapy machine had an example of this, where an operator quickly changing from the high radiation beam to select the lower radiation beam would still result in the machine still using the high radiation beam because of a race condition. This error resulted in the deaths of three patients\cite{BugSnag} and, had more through system validation been completed, these deaths would have likely been avoided\cite{AGift}.
+
+There are two main approaches to developing correct software: testing and verification. Though thorough unit testing can be effective in minimising software bugs\cite{MicroTest}, this form of testing is significantly less effective in concurrent contexts. Testing can only establish the presence of a bug, not the absence of any; this can be somewhat addressed by writing exhaustive tests to cover every possible edge case, however this imposes severe restrictions on the complexity of such systems. Writing exhaustive tests is near impossible for sufficiently complex concurrent systems. This is predominantly due to the sheer number of different interactions between independent threads: considering all possible interactions and testing them effectively are both challenging tasks.
+\emph{Linearizability} testing is an effective alternative approach, although this this relies on the random testing of edge cases; clearly this is not exhaustive either\cite{LoweLin}.
+
+By contrast, formal verification can be used to show that systems satisfy some desired properties\cite{PrinciplesOfModelChecking}. This, however, is a complex process and it is often impossible to model check the complete behaviour of a large system simply due to the size of the resulting state space. 
+We instead focus on modelling the concurrent interactions between threads; if the interactions between threads behave as expected then system validation can be reduced to checking the behaviour of the individual, sequential, threads.
+Focusing on these interactions allows us to decrease the size of a system to the extent where it is now feasible to model check these behaviours. 
+
+We choose to use the process algebra Communicating Sequential Processes (CSP) as our tool for modelling these interactions; CSP is a language for describing processes that can interact both with their environment and other parallel processes. As CSP is covered in the Part B Concurrency course\cite{Concurrency} we assume familiarity with CSP as described in \cite{Roscoe}.
+
+
+%As a result, we can focus our modelling on the concurrent interactions between threads, be this directly via message passing or through concurrent datatypes or primitives. 
+%If the interactions between threads behave as expected then system validation can instead be reduced to checking the behaviour of the individual sequential threads. Focussing on these interactions decreases the size of the system to the extent where it is now feasible to model check the concurrent behaviours. We choose to use the process algebra Communicating Sequential Processes (CSP)\cite{Roscoe} as our tool for modelling these interactions
+
+\subsection{Contributions}
+
+The contributions of this project are as follows:
+
+\begin{itemize}
+  \item We produce a CSP model of a 2-thread synchronisation object and how they can be organised into an arbitrary n-thread barrier synchronisation object. We then use the CSP model to prove the correctness of the barrier synchronisation object.
+  \item We model both the standard JVM monitor and the SCL\cite{CP} implementation of a monitor, proving that the SCL monitor provides the same mutual exclusion and correctness properties as the JVM monitor but without the same unwanted behaviours.
+  \item We examine a variety of locks from \cite{CADS} and a number of desirable properties of locks, using CSP refinement checks to determine which locks satisfy. We also discuss the feasibility of modelling infinite properties using CSP.
+\end{itemize}
+
+
 
 % General correctness importance
 % Concurrency - Therac \cite{BugSnag}

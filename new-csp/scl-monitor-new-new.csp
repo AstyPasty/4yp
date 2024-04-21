@@ -1,0 +1,210 @@
+module SCLMonitor
+
+-- Needs to be puts together in parallel for running and then analysis
+
+include "lock-support.csp"
+
+-- A map from ConditionID => (<ThreadID>, map(ThreadID => Bool))
+-- First map gives the seq of waiters on each condition
+-- Second map gives the ready values for each waiter
+
+channel enqueue, dequeue, setReady: MonitorID.ConditionID.ThreadID.ThreadID
+channel isReady: MonitorID.ConditionID.ThreadID.ThreadID.Bool
+channel isEmpty: MonitorID.ConditionID.ThreadID
+
+Waiting :: (MonitorID, ConditionID, <ThreadID>, {ThreadID}) -> Proc
+Waiting(mon, cnd, <>, rs) = 
+     isEmpty.mon.cnd?t -> Waiting(mon, cnd, <>, rs)
+  [] enqueue.mon.cnd?t?t2 -> Waiting(mon, cnd, <t2>, diff(rs, {t2}))
+  [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <>, rs)
+  [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <>, union(rs, {t2}))
+  --[] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <>, diff(rs, {t}))
+
+Waiting(mon, cnd, <t'>^ts, rs) =
+     dequeue.mon.cnd?t!t' -> Waiting(mon, cnd, ts, rs)
+  [] enqueue.mon.cnd?t?t2:diff(ThreadID, set(<t'>^ts)) -> Waiting(mon, cnd, <t'>^ts^<t2>, diff(rs, {t2}))
+  [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <t'>^ts, rs)
+  [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <t'>^ts, union(rs, {t2}))
+  --[] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <t'>^ts, diff(rs, {t}))
+
+
+Signal1(mon, cnd, t) = 
+     isEmpty.mon.cnd.t -> SKIP
+  [] dequeue.mon.cnd.t?t2 -> isReady.mon.cnd.t.t2?b ->
+      if b then Signal1(mon, cnd, t)
+      else setReady.mon.cnd.t.t2 -> Unpark(mon, cnd, t, t2); SKIP--wakeUp.mon.cnd.t2.true -> SKIP
+
+SignalAll1(mon, cnd, t) =
+     isEmpty.mon.cnd.t -> SKIP
+  [] dequeue.mon.cnd.t?t2 -> setReady.mon.cnd.t.t2 -> Unpark(mon, cnd, t, t2); --wakeUp.mon.cnd.t2.true -> 
+                                                                             SignalAll1(mon, cnd, t)
+
+Await1(mon, cnd, t) = enqueue.mon.cnd.t.t -> release.mon.cnd.t 
+                                          -> Await2(mon, cnd, t)
+
+Await2(mon, cnd, t) = isReady.mon.cnd.t.t?b -> if b then acquire.mon.cnd.t -> SKIP
+                                             else Park(mon, cnd, t); Await2(mon, cnd, t)
+
+
+
+
+Unlocked'(m, c, trying, parked, toPark, awaitPark) =
+     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark})) -> 
+       Unlocked'(m, c, union(trying, {t'}), parked, toPark, awaitPark)
+  [] acquire.m.c?t:trying ->
+       Locked'(m, c, t, diff(trying, {t}), parked, toPark, awaitPark, false, false, false, false)
+  [] wakeUp.m.c?t':parked!false -> 
+       Unlocked'(m, c, trying, diff(parked, {t'}), union(toPark, {t'}), awaitPark)
+  [] wakeUp.m.c?t':parked!true -> 
+       Unlocked'(m, c, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
+  [] park.m.c?t':union(toPark, awaitPark) ->
+       Unlocked'(m, c, trying, union(parked, {t'}), diff(toPark, {t'}), diff(awaitPark, {t'}))
+
+  -- [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!false -> 
+  --      Unlocked'(m, c, trying, parked, toPark, awaitPark))
+  -- [] (isReady.m.c?_?_!true -> 
+  --      Unlocked'(m, c, trying, parked, toPark, awaitPark))
+  -- [] (isReady.m.c?t2!t2!false ->
+  --      Unlocked'(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2})))
+
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!false -> 
+       Unlocked'(m, c, trying, parked, toPark, awaitPark))
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!true ->
+       Unlocked'(m, c, trying, parked, toPark, awaitPark))
+  [] (isReady.m.c?t1!t1!true ->
+       Unlocked'(m, c, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1})))
+  [] (isReady.m.c?t2!t2!false -> 
+       Unlocked'(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}))) 
+
+
+  -- [] (setReady.m.c?t2:diff(ThreadID, awaitPark)!t2 -> --Needs refining with when exactly this can happen
+  --      Unlocked'(m, c, trying, parked, toPark, awaitPark))
+
+Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll) = 
+     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
+       Locked'(m, c, t, union(trying, {t'}), parked, toPark, awaitPark, rel, wait, sig1, sigAll)
+  [] park.m.c?t':union(toPark, awaitPark) ->
+       Locked'(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), diff(awaitPark, {t'}), rel, wait, sig1, sigAll)
+  [] wakeUp.m.c?t':parked!false -> 
+       Locked'(m, c, t, trying, diff(parked, {t'}), union(toPark, {t'}), awaitPark, rel, wait, sig1, sigAll)
+  [] wakeUp.m.c?t':parked!true -> 
+       Locked'(m, c, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}), rel, wait, sig1, sigAll)
+
+  -- [] (sig1 and not(sigAll) and not(rel) and not(wait)) & (
+  --          (empty(awaitPark)) & (wakeUp.m.c?t':parked!true ->
+  --             Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark, diff(awaitPark, {t'}),false, false, false, false))
+  --       [] (not(empty(awaitPark))) & (() |~| ())
+  -- )
+
+  -- [] (sig1 or sigAll) & (setReady.m.c.t?t2:diff(ThreadID, Union({parked, toPark, awaitPark})) -> --Needs refining with when exactly this can happen
+  --      Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, card(Union({parked, awaitPark, toPark})) > 0))
+  -- [] (sig1 or sigAll) & (setReady.m.c.t?t':awaitPark ->
+  --       Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark,diff(awaitPark, {t'}), false, false, false, card(Union({parked, awaitPark, toPark})) > 0))
+  
+  --extned for sigAll
+  [] (sig1) & (setReady.m.c.t?t' ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, false, sigAll))
+
+
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!false -> 
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll))
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!true ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll))
+  [] (isReady.m.c?t1!t1!true ->
+       Locked'(m, c, t, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1}), rel, wait, sig1, sigAll))
+  [] (isReady.m.c?t2!t2!false -> 
+       Locked'(m, c, t, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}), rel, wait, sig1, sigAll))
+
+  --[] (sig1 and not(sigAll) and not(rel) and not(wait)) & (wakeUp.m.c?t':parked!true ->
+  --     Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark,diff(awaitPark, {t'}), false, false, false, false))
+  -- [] (sig1 and not(sigAll) and not(rel) and not(wait)) & (setReady.m.c.t?t':awaitPark ->
+  --      Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark,diff(awaitPark, {t'}), false, false, false, false))
+  -- [] (not(sig1) and sigAll and not(rel) and not(wait)) & (wakeUp.m.c?t':parked!true ->
+  --      Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark, awaitPark, false, false, false, (card(union(parked, awaitPark)) > 0)))
+  -- [] (not(sig1) and sigAll and not(rel) and not(wait)) & (setReady.m.c.t?t':awaitPark ->
+  --      Locked'(m, c, t, union(trying, {t'}), parked, toPark, diff(awaitPark, {t'}), false, false, false, (card(union(parked, awaitPark)) > 0)))
+  [] (not(sig1) and not(sigAll) and rel and not(wait)) & (release.m.c.t ->
+       Unlocked'(m, c, trying, parked, toPark, awaitPark))
+  [] (not(sig1) and not(sigAll) and not(rel) and wait) & (release.m.c.t ->
+       Unlocked'(m, c, trying, parked, toPark, union(awaitPark, {t})))
+
+  [] (sig1 or sigAll) & (isEmpty.m.c.t ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, false))
+
+  [] (not(sig1) and not(sigAll) and not(rel)) & (callRelease.m.c.t ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, true, false, false, false))
+  [] (not(sig1) and not(sigAll) and not(rel)) & (callAwait.m.c.t ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, false, true, false, false))
+  [] (not(sig1) and not(sigAll) and not(rel)) & (callSignal.m.c.t ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, true, false))
+  [] (not(sig1) and not(sigAll) and not(rel)) & (callSignalAll.m.c.t ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, true))
+  
+
+
+
+exports
+
+channel acquire, release: MonitorID.ConditionID.ThreadID
+channel await, signalAll: MonitorID.ConditionID.ThreadID
+--channel signal: MonitorID.ConditionID.ThreadID.ThreadID
+channel callAcquire, callRelease: MonitorID.ConditionID.ThreadID
+channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
+channel callSignal: MonitorID.ConditionID.ThreadID
+
+--InitialiseMon(mon, cnd) = (Unlocked(mon, cnd, {}) [|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (InitLockSupp(mon, cnd) ||| Waiting(mon, cnd, <>, {}))) 
+InitialiseMon(mon, cnd) = (Unlocked'(mon, cnd, {}, {}, {}, {}) [|{|wakeUp.mon.cnd, park.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (Waiting(mon, cnd, <>, {}) [|{wakeUp.mon.cnd.t.false | t <- ThreadID}|] InitLockSupp(mon, cnd))) --[|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd|}|] InitLockSupp(mon, cnd))
+
+runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, acquire.mon.cnd, release.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd, isEmpty.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, isReady.mon.cnd, setReady.mon.cnd, wakeUp.mon.cnd, park.mon.cnd, unpark.mon.cnd
+                                                                                                                                                                                                                                                          |}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signalAll.mon.cnd|}--, release.mon.cnd, acquire.mon.cnd|}
+--runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd|}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signal.mon.cnd, signalAll.mon.cnd, release.mon.cnd, acquire.mon.cnd|}
+-- runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd|}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signal.mon.cnd, signallAll.mon.cnd, release.mon.cnd, acquire.mon.cnd|}
+
+-- Pre: hold the lock already
+Await(mon, cnd, t) = callAwait.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Await1(mon, cnd, t)
+
+Signal(mon, cnd, t) = callSignal.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                        Signal1(mon, cnd, t)
+
+SignalAll(mon, cnd, t) = callSignalAll.mon.cnd.t -> --checkHolder.mon.cnd?t2 -> if t2 != t then DIV else 
+                            SignalAll1(mon, cnd, t)
+
+Lock(mon, cnd, t) = callAcquire.mon.cnd.t -> 
+                    acquire.mon.cnd.t -> SKIP
+
+Unlock(mon, cnd, t) = callRelease.mon.cnd.t -> 
+                    release.mon.cnd.t -> SKIP
+
+endmodule
+
+
+-- Unlocked(mon, cnd, {}) = 
+--      acquire.mon.cnd?t -> Locked(mon, cnd, waiting, t)
+--   [] wakeUp.mon.cnd?t':waiting!false -> Unlocked(mon, cnd, diff(waiting, {t'}))
+
+
+-- Unlocked(mon, cnd, waiting, trying, spurious) =
+--      callAcquire.mon.cnd?t -> Unlocked(mon, cnd, waiting, union(trying, {t}), spurious)
+--   [] acquire.mon.cnd?t:trying -> Locked(mon, cnd, waiting, diff(trying, {t}), diff(spurious, {t}), t, false, <>, <>)
+--   [] wakeUp.mon.cnd?t':waiting!false -> Unlocked(mon, cnd, diff(waiting, {t'}), trying, union(spurious, {t'}))
+--   [] wakeUp.mon.cnd?t':waiting!true -> Unlocked(mon, cnd, diff(waiting, {t'}), union(trying, {t'}), spurious)
+--   [] park.mon.cnd?t':spurious -> Unlocked(mon, cnd, union(waiting, {t'}), trying, diff(spurious, {t'}))
+--   --[] unpark.mon.cnd?t?t':waiting -> Unlocked(mon, cnd, diff(waiting, {t'}), trying, union(spurious, {t'}))
+
+-- Locked(mon, cnd, waiting, trying, spurious, t, rel, sig, un) = 
+--      (not(rel) and (sig == <>) and (un == <>)) & (callRelease.mon.cnd.t -> Locked(mon, cnd, waiting, trying, t, true, sig, un))
+--   [] (rel and (sig == <>) and (un == <>)) & (release.mon.cnd.t -> Unlocked(mon, cnd, waiting, trying, union(spurious, {t})))
+--   [] (not(rel) and (sig == <>) and (un == <>)) & (callAwait.mon.cnd.t -> Locked(mon, cnd, waiting, trying, t, true, sig, un))
+--   [] (not(rel) and (sig == <>) and (un == <>)) & (callSignal.mon.cnd.t -> Locked(mon, cnd, diff(waiting, {t2}), union(trying, {t2}), t, rel, sig, un))
+--   [] (not(rel) and (sig == <>) and (un == <>)) & (callSignalAll.mon.cnd.t -> Locked(mon, cnd, {}, trying, t, rel, seq(trying), un))
+--   [] (not(rel) and (sig != <>) and (un == <>)) & (setReady.mon.cnd.t.head(sig) -> Locked(mon, cnd, waiting, trying, t, rel, tail(sig), <head(sig)>))
+--   [] (un != <>) & (unpark.mon.cnd.t.head(un) -> Locked(mon, cnd, waiting, trying, t, true, sig, tail(un)))
+--   [] callAcquire.mon.cnd?t' -> Locked(mon, cnd, waiting, union(trying, {t'}), spurious, t, true, sig, un)
+--   [] wakeUp.mon.cnd?t':waiting!true -> Locked(mon, cnd, diff(waiting, {t'}), union(trying, {t}), spurious, t, rel, sig, un)
+--   [] wakeUp.mon.cnd?t':waiting!false -> Locked(mon, cnd, diff(waiting, {t'}), trying, union(spurious, {t}), t, rel, sig, un)
+--   [] park.mon.cnd?t':spurious -> Locked(mon, cnd, union(waiting, {t'}), trying, diff(spurious, {t'}), t, rel, sig, un)
+
+
+  --[] park.mon.cnd?t':trying -> Unlocked(mon, cnd, waiting, diff(trying, {t'})) --only park without holding lock
+  --[] unpark.mon.cnd.t?t':waiting -> Locked(mon, cnd, diff(waiting, {t'}), union(trying, {t'}), t, rel, sig, un)

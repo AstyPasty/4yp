@@ -19,6 +19,62 @@
 
 \refsection{0}
   \datalist[entry]{nty/global//global/global}
+    \entry{AGift}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=08d36b6ad967c95f071b17a1400b6549}{%
+           family={Baase},
+           familyi={B\bibinitperiod},
+           given={Sara},
+           giveni={S\bibinitperiod}}}%
+      }
+      \strng{namehash}{08d36b6ad967c95f071b17a1400b6549}
+      \strng{fullhash}{08d36b6ad967c95f071b17a1400b6549}
+      \strng{bibnamehash}{08d36b6ad967c95f071b17a1400b6549}
+      \strng{authorbibnamehash}{08d36b6ad967c95f071b17a1400b6549}
+      \strng{authornamehash}{08d36b6ad967c95f071b17a1400b6549}
+      \strng{authorfullhash}{08d36b6ad967c95f071b17a1400b6549}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{A Gift of Fire, 4th Edition}
+      \field{year}{2012}
+      \verb{urlraw}
+      \verb https://www.philadelphia.edu.jo/academics/lalqoran/uploads/A-Gift-of-Fire-4thEd-2012.pdf
+      \endverb
+      \verb{url}
+      \verb https://www.philadelphia.edu.jo/academics/lalqoran/uploads/A-Gift-of-Fire-4thEd-2012.pdf
+      \endverb
+    \endentry
+    \entry{PrinciplesOfModelChecking}{book}{}
+      \name{author}{2}{}{%
+        {{hash=7725f3db070a985fe46a5feb0bcee960}{%
+           family={Baier},
+           familyi={B\bibinitperiod},
+           given={Christel},
+           giveni={C\bibinitperiod}}}%
+        {{hash=392d5825b15ef7f81f68632c7a49fdef}{%
+           family={Katoen},
+           familyi={K\bibinitperiod},
+           given={Joost-Pieter},
+           giveni={J\bibinithyphendelim P\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {MIT Press}%
+      }
+      \strng{namehash}{89a25b516e2b4c8733def01ee561abfe}
+      \strng{fullhash}{89a25b516e2b4c8733def01ee561abfe}
+      \strng{bibnamehash}{89a25b516e2b4c8733def01ee561abfe}
+      \strng{authorbibnamehash}{89a25b516e2b4c8733def01ee561abfe}
+      \strng{authornamehash}{89a25b516e2b4c8733def01ee561abfe}
+      \strng{authorfullhash}{89a25b516e2b4c8733def01ee561abfe}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Principles of Model Checking}
+      \field{year}{2008}
+    \endentry
     \entry{Flight501Failure}{misc}{}
       \name{author}{1}{}{%
         {{hash=7bda02b6aaa6255c1d769a4aa5a6ac96}{%
@@ -45,6 +101,60 @@
       \endverb
       \verb{url}
       \verb http://sunnyday.mit.edu/nasa-class/Ariane5-report.html
+      \endverb
+    \endentry
+    \entry{KnightCapital}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=a72a02fd8dc2b445437c83e686bbd57b}{%
+           family={Dolfing},
+           familyi={D\bibinitperiod},
+           given={Henrico},
+           giveni={H\bibinitperiod}}}%
+      }
+      \strng{namehash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \strng{fullhash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \strng{bibnamehash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \strng{authorbibnamehash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \strng{authornamehash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \strng{authorfullhash}{a72a02fd8dc2b445437c83e686bbd57b}
+      \field{sortinit}{D}
+      \field{sortinithash}{6f385f66841fb5e82009dc833c761848}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Case Study 4: The \$440 Million Software Error at Knight Capital}
+      \field{year}{2019}
+      \verb{urlraw}
+      \verb https://www.henricodolfing.com/2019/06/project-failure-case-study-knight-capital.html
+      \endverb
+      \verb{url}
+      \verb https://www.henricodolfing.com/2019/06/project-failure-case-study-knight-capital.html
+      \endverb
+    \endentry
+    \entry{Concurrency}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=8fc4fafa086660b47305993dce493bfd}{%
+           family={Gavin\bibnamedelima Lowe},
+           familyi={G\bibinitperiod\bibinitdelim L\bibinitperiod},
+           given={Bill\bibnamedelima Roscoe},
+           giveni={B\bibinitperiod\bibinitdelim R\bibinitperiod}}}%
+      }
+      \strng{namehash}{8fc4fafa086660b47305993dce493bfd}
+      \strng{fullhash}{8fc4fafa086660b47305993dce493bfd}
+      \strng{bibnamehash}{8fc4fafa086660b47305993dce493bfd}
+      \strng{authorbibnamehash}{8fc4fafa086660b47305993dce493bfd}
+      \strng{authornamehash}{8fc4fafa086660b47305993dce493bfd}
+      \strng{authorfullhash}{8fc4fafa086660b47305993dce493bfd}
+      \field{sortinit}{G}
+      \field{sortinithash}{32d67eca0634bf53703493fb1090a2e8}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Concurrency Lecture Slides}
+      \field{year}{2020}
+      \verb{urlraw}
+      \verb https://www.cs.ox.ac.uk/teaching/materials19-20/concurrency/
+      \endverb
+      \verb{url}
+      \verb https://www.cs.ox.ac.uk/teaching/materials19-20/concurrency/
       \endverb
     \endentry
     \entry{MicroTest}{misc}{}
@@ -78,6 +188,34 @@
       \verb https://collaboration.csc.ncsu.edu/laurie/Papers/Unit_testing_cameraReady.pdf
       \endverb
     \endentry
+    \entry{CP}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=a46a2ef79b7f4a44a02a8be45d39e2a2}{%
+           family={Lowe},
+           familyi={L\bibinitperiod},
+           given={Gavin},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{fullhash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{bibnamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authorbibnamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authornamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \strng{authorfullhash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \field{extraname}{1}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Concurrent Programming Lecture Slides}
+      \field{year}{2022}
+      \verb{urlraw}
+      \verb https://www.cs.ox.ac.uk/teaching/materials22-23/concurrentprogramming/
+      \endverb
+      \verb{url}
+      \verb https://www.cs.ox.ac.uk/teaching/materials22-23/concurrentprogramming/
+      \endverb
+    \endentry
     \entry{LoweLin}{article}{}
       \name{author}{1}{}{%
         {{hash=a46a2ef79b7f4a44a02a8be45d39e2a2}{%
@@ -92,6 +230,7 @@
       \strng{authorbibnamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
       \strng{authornamehash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
       \strng{authorfullhash}{a46a2ef79b7f4a44a02a8be45d39e2a2}
+      \field{extraname}{2}
       \field{sortinit}{L}
       \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
       \field{labelnamesource}{author}
@@ -109,6 +248,90 @@
       \verb{url}
       \verb https://onlinelibrary.wiley.com/doi/abs/10.1002/cpe.3928
       \endverb
+    \endentry
+    \entry{BugSnag}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=05af38917e3f62d8b0968865fc71df7f}{%
+           family={Lynch},
+           familyi={L\bibinitperiod},
+           given={Jamie},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{05af38917e3f62d8b0968865fc71df7f}
+      \strng{fullhash}{05af38917e3f62d8b0968865fc71df7f}
+      \strng{bibnamehash}{05af38917e3f62d8b0968865fc71df7f}
+      \strng{authorbibnamehash}{05af38917e3f62d8b0968865fc71df7f}
+      \strng{authornamehash}{05af38917e3f62d8b0968865fc71df7f}
+      \strng{authorfullhash}{05af38917e3f62d8b0968865fc71df7f}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{Blog}
+      \field{title}{The Worst Computer Bugs in History: Race conditions in Therac-25}
+      \field{year}{2017}
+      \verb{urlraw}
+      \verb https://www.bugsnag.com/blog/bug-day-race-condition-therac-25/
+      \endverb
+      \verb{url}
+      \verb https://www.bugsnag.com/blog/bug-day-race-condition-therac-25/
+      \endverb
+    \endentry
+    \entry{CADS}{misc}{}
+      \name{author}{2}{}{%
+        {{hash=010cb44976e68176f9ac2de0163f3d2c}{%
+           family={Nickau},
+           familyi={N\bibinitperiod},
+           given={Hanno},
+           giveni={H\bibinitperiod}}}%
+        {{hash=a46a2ef79b7f4a44a02a8be45d39e2a2}{%
+           family={Lowe},
+           familyi={L\bibinitperiod},
+           given={Gavin},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{ae0a957a94772b0ecde67c57c9320acc}
+      \strng{fullhash}{ae0a957a94772b0ecde67c57c9320acc}
+      \strng{bibnamehash}{ae0a957a94772b0ecde67c57c9320acc}
+      \strng{authorbibnamehash}{ae0a957a94772b0ecde67c57c9320acc}
+      \strng{authornamehash}{ae0a957a94772b0ecde67c57c9320acc}
+      \strng{authorfullhash}{ae0a957a94772b0ecde67c57c9320acc}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Concurrent Algorithms and Data Structures Lecture Notes}
+      \field{year}{2023}
+      \verb{urlraw}
+      \verb https://www.cs.ox.ac.uk/teaching/courses/2023-2024/cads/
+      \endverb
+      \verb{url}
+      \verb https://www.cs.ox.ac.uk/teaching/courses/2023-2024/cads/
+      \endverb
+    \endentry
+    \entry{Roscoe}{book}{}
+      \name{author}{1}{}{%
+        {{hash=8faef169a19fa8cb69c037b5c65081d2}{%
+           family={Roscoe},
+           familyi={R\bibinitperiod},
+           given={Andrew\bibnamedelima (Bill)},
+           giveni={A\bibinitperiod\bibinitdelim (\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{8faef169a19fa8cb69c037b5c65081d2}
+      \strng{fullhash}{8faef169a19fa8cb69c037b5c65081d2}
+      \strng{bibnamehash}{8faef169a19fa8cb69c037b5c65081d2}
+      \strng{authorbibnamehash}{8faef169a19fa8cb69c037b5c65081d2}
+      \strng{authornamehash}{8faef169a19fa8cb69c037b5c65081d2}
+      \strng{authorfullhash}{8faef169a19fa8cb69c037b5c65081d2}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Understanding Concurrent Systems}
+      \field{year}{2010}
     \endentry
   \enddatalist
 \endrefsection

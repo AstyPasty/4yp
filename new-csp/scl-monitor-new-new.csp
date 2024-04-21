@@ -18,14 +18,14 @@ Waiting(mon, cnd, <>, rs) =
   [] enqueue.mon.cnd?t?t2 -> Waiting(mon, cnd, <t2>, diff(rs, {t2}))
   [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <>, rs)
   [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <>, union(rs, {t2}))
-  --[] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <>, diff(rs, {t}))
+  [] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <>, diff(rs, {t}))
 
 Waiting(mon, cnd, <t'>^ts, rs) =
      dequeue.mon.cnd?t!t' -> Waiting(mon, cnd, ts, rs)
   [] enqueue.mon.cnd?t?t2:diff(ThreadID, set(<t'>^ts)) -> Waiting(mon, cnd, <t'>^ts^<t2>, diff(rs, {t2}))
   [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <t'>^ts, rs)
   [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <t'>^ts, union(rs, {t2}))
-  --[] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <t'>^ts, diff(rs, {t}))
+  [] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <t'>^ts, diff(rs, {t}))
 
 
 Signal1(mon, cnd, t) = 
@@ -67,9 +67,7 @@ Unlocked'(m, c, trying, parked, toPark, awaitPark) =
   -- [] (isReady.m.c?t2!t2!false ->
   --      Unlocked'(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2})))
 
-  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!false -> 
-       Unlocked'(m, c, trying, parked, toPark, awaitPark))
-  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!true ->
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})?_ ->
        Unlocked'(m, c, trying, parked, toPark, awaitPark))
   [] (isReady.m.c?t1!t1!true ->
        Unlocked'(m, c, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1})))
@@ -101,14 +99,13 @@ Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll) =
   -- [] (sig1 or sigAll) & (setReady.m.c.t?t':awaitPark ->
   --       Locked'(m, c, t, union(trying, {t'}), diff(parked, {t'}), toPark,diff(awaitPark, {t'}), false, false, false, card(Union({parked, awaitPark, toPark})) > 0))
   
-  --extned for sigAll
-  [] (sig1) & (setReady.m.c.t?t' ->
-       Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, false, sigAll))
+
+  [] (sig1 or sigAll) & (setReady.m.c.t?t' ->
+       Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, sigAll))
 
 
-  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!false -> 
-       Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll))
-  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})!true ->
+
+  [] (isReady.m.c?t1?t2:diff(ThreadID, {t1})?_ ->
        Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll))
   [] (isReady.m.c?t1!t1!true ->
        Locked'(m, c, t, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1}), rel, wait, sig1, sigAll))

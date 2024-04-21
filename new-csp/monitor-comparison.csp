@@ -34,7 +34,7 @@ ThreadSCLSM1(t) = (SCLSM::Await(SigM.S.0, C.0, t); ThreadSCLSM1(t))
 ThreadSCL(t) = SCL::Lock(SigM.S.0, C.0, t); ThreadSCL1(t)
 ThreadSCL1(t) = (SCL::Await(SigM.S.0, C.0, t); ThreadSCL1(t))
                 [] (SCL::Signal(SigM.S.0, C.0, t); ThreadSCL1(t))
-                --[] (SCL::SignalAll(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::SignalAll(SigM.S.0, C.0, t); ThreadSCL1(t))
                 [] (SCL::Unlock(SigM.S.0, C.0, t); ThreadSCL(t))
 
 ThreadJVM(t) = JVMM::Lock(SigM.S.0, t); ThreadJVM1(t)
@@ -91,8 +91,8 @@ SpecLocked(t, toWait, toRel,  waiting, poss, mon, monC, acq, rel, notify, notify
         SpecLocked(t, false, false, <>, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
   [] (not(toWait) and not(toRel) and not(null(waiting))) & notify.monC.t -> 
         SpecLocked(t, false, false, tail(waiting), union(poss, {head(waiting)}), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
-  -- [] (not(toWait) and not(toRel)) & notifyAll.monC.t -> 
-  --       SpecLocked(t, false, false, <>, union(poss, set(waiting)), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel)) & notifyAll.monC.t -> 
+        SpecLocked(t, false, false, <>, union(poss, set(waiting)), mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)
   [] (not(toWait) and not(toRel)) & cRel.monC.t -> 
         SpecLocked(t, false, true, waiting, poss, mon, monC, acq, rel, notify, notifyAll, wait, cAcq, cRel)  
   [] (not(toWait) and toRel) & rel.monC.t -> 

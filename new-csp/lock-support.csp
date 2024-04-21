@@ -23,7 +23,7 @@ LockSupport(m, c, waiting, permits) =
   if waiting == {} then LockSupport1(m, c, waiting, permits)
   else (LockSupport1(m, c, waiting, permits)
     --|~| wakeUp$t:waiting -> LockSupport(diff(waiting, {t}), permits) 
-    )--|~| wakeUp.m.c$t:waiting!false -> LockSupport(m, c, diff(waiting, {t}), permits) )
+  )--|~| wakeUp.m.c$t:waiting!false -> LockSupport(m, c, diff(waiting, {t}), permits) )
 
 InitLockSupp(m, c) = LockSupport0(m, c) --\ {|park,unpark|}--\ {|park|}--, unpark|}
 

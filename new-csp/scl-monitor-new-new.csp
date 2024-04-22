@@ -18,14 +18,14 @@ Waiting(mon, cnd, <>, rs) =
   [] enqueue.mon.cnd?t?t2 -> Waiting(mon, cnd, <t2>, diff(rs, {t2}))
   [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <>, rs)
   [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <>, union(rs, {t2}))
-  [] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <>, diff(rs, {t}))
+  --[] wakeUp.mon.cnd?t!false -> Waiting(mon, cnd, <>, diff(rs, {t}))
 
 Waiting(mon, cnd, <t'>^ts, rs) =
      dequeue.mon.cnd?t!t' -> Waiting(mon, cnd, ts, rs)
   [] enqueue.mon.cnd?t?t2:diff(ThreadID, set(<t'>^ts)) -> Waiting(mon, cnd, <t'>^ts^<t2>, diff(rs, {t2}))
   [] isReady.mon.cnd?t?t2!(member(t2, rs)) -> Waiting(mon, cnd, <t'>^ts, rs)
   [] setReady.mon.cnd?t?t2:diff(ThreadID, rs) -> Waiting(mon, cnd, <t'>^ts, union(rs, {t2}))
-  [] wakeUp.mon.cnd?t:rs!false -> Waiting(mon, cnd, <t'>^ts, diff(rs, {t}))
+  --[] wakeUp.mon.cnd?t!false -> Waiting(mon, cnd, <t'>^ts, diff(rs, {t}))
 
 
 Signal1(mon, cnd, t) = 
@@ -144,16 +144,23 @@ exports
 
 channel acquire, release: MonitorID.ConditionID.ThreadID
 channel await, signalAll: MonitorID.ConditionID.ThreadID
---channel signal: MonitorID.ConditionID.ThreadID.ThreadID
 channel callAcquire, callRelease: MonitorID.ConditionID.ThreadID
 channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
 channel callSignal: MonitorID.ConditionID.ThreadID
+channel wakeUp: MonitorID.ConditionID.ThreadID.Bool
+
+
 
 --InitialiseMon(mon, cnd) = (Unlocked(mon, cnd, {}) [|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (InitLockSupp(mon, cnd) ||| Waiting(mon, cnd, <>, {}))) 
-InitialiseMon(mon, cnd) = (Unlocked'(mon, cnd, {}, {}, {}, {}) [|{|wakeUp.mon.cnd, park.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (Waiting(mon, cnd, <>, {}) [|{wakeUp.mon.cnd.t.false | t <- ThreadID}|] InitLockSupp(mon, cnd))) --[|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd|}|] InitLockSupp(mon, cnd))
+InitialiseMon(mon, cnd) = (Unlocked'(mon, cnd, {}, {}, {}, {}) [|{|wakeUp.mon.cnd, park.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (Waiting(mon, cnd, <>, {}) ||| InitLockSupp(mon, cnd)))  --[|{wakeUp.mon.cnd.t.false | t <- ThreadID}|] InitLockSupp(mon, cnd))) --[|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd|}|] InitLockSupp(mon, cnd))
 
 runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, acquire.mon.cnd, release.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd, isEmpty.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, isReady.mon.cnd, setReady.mon.cnd, wakeUp.mon.cnd, park.mon.cnd, unpark.mon.cnd
-                                                                                                                                                                                                                                                          |}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signalAll.mon.cnd|}--, release.mon.cnd, acquire.mon.cnd|}
+                                                                                                                                                                                                                                                          |}|] InitialiseMon(mon, cnd) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signalAll.mon.cnd|} )
+InitialiseMonDet(mon, cnd) = (Unlocked'(mon, cnd, {}, {}, {}, {}) [|{|wakeUp.mon.cnd, park.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd|}|] (Waiting(mon, cnd, <>, {}) ||| InitLockSuppDet(mon, cnd)))  --[|{wakeUp.mon.cnd.t.false | t <- ThreadID}|] InitLockSupp(mon, cnd))) --[|{|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd|}|] InitLockSupp(mon, cnd))
+runWithDet(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, acquire.mon.cnd, release.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd, isEmpty.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, isReady.mon.cnd, setReady.mon.cnd, wakeUp.mon.cnd, park.mon.cnd, unpark.mon.cnd
+      |}|] InitialiseMonDet(mon, cnd) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signalAll.mon.cnd|} )
+  
+
 --runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd|}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signal.mon.cnd, signalAll.mon.cnd, release.mon.cnd, acquire.mon.cnd|}
 -- runWith(P, mon, cnd) = (P [|{|callSignal.mon.cnd, callAwait.mon.cnd, callSignalAll.mon.cnd, callAcquire.mon.cnd, callRelease.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd|}|] InitialiseMon(mon, cnd)) \ {|park.mon.cnd, unpark.mon.cnd, wakeUp.mon.cnd, enqueue.mon.cnd, dequeue.mon.cnd, setReady.mon.cnd, isReady.mon.cnd, isEmpty.mon.cnd, await.mon.cnd, signal.mon.cnd, signallAll.mon.cnd, release.mon.cnd, acquire.mon.cnd|}
 

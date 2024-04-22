@@ -1,4 +1,4 @@
-n = 3
+n = 4
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 datatype MonitorID = SigM.SignalID
@@ -51,6 +51,7 @@ ThreadsSCLSM = ||| t <- ThreadID @ ThreadSCLSM(t)
 ThreadsJVM = (||| t <- ThreadID @ ThreadJVM(t))
 
 SCLSystem = SCL::runWith(ThreadsSCL, SigM.S.0, C.0)
+SCLSystemDet = SCL::runWithDet(ThreadsSCL, SigM.S.0, C.0)
 SCLSMSystem = SCLSM::runWith(ThreadsSCLSM, SigM.S.0)
 -- Note that we block spurious wakeups here; this is because we don't 
 -- (currently) allow internal spurious wakeups inside the SCL monitor 
@@ -133,9 +134,13 @@ SpecSCL = (SpecUnlocked(<>, {},SigM.S.0, SigM.S.0.C.0, SCL::acquire, SCL::releas
 
 -- Both satisfy refinement under failures-divergences
 assert SpecSCL :[divergence free]
-assert (SpecSCL) [T= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t| t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
-assert (SpecSCL) [F= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
-assert (SpecSCL) [FD= (SCLSystem) --[[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])
+assert (SpecSCL) [T= (SCLSystem) 
+assert (SpecSCL) [F= (SCLSystem) 
+assert (SpecSCL) [FD= (SCLSystem) 
+
+assert (SpecSCL) [T= (SCLSystemDet) 
+assert (SpecSCL) [F= (SCLSystemDet) 
+assert (SpecSCL) [FD= (SCLSystemDet) 
 --assert SpecJVM [FD= JVMSystem
 
 -- assert (SpecSCL [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]]) [T= (SCLSystem [[SCL::callSignal.mon.cnd.t <- SCL::signal.mon.cnd.t.t2 | t <- ThreadID, t2 <- ThreadID, mon <- MonitorID, cnd <- ConditionID]])

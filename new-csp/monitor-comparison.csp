@@ -1,4 +1,4 @@
-n = 4
+n = 3
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0..n-1}
 datatype MonitorID = SigM.SignalID

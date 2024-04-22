@@ -1,0 +1,111 @@
+n = 3
+datatype ThreadID = T.{0..n-1}
+datatype SignalID = S.{0..n-1}
+datatype MonitorID = SigM.SignalID
+datatype ConditionID = C.{0}--..2}
+
+
+-- This will include the version of the SCL monitor based on a 
+-- ParkSupport implementation
+include "scl-monitor-new-new.csp"
+
+instance SCL = SCLMonitor
+
+
+-- A very general correct usage of either an SCL or JVM monitor
+-- Threads here aren't allowed to terminate; this could be modified to
+-- include that but I don't feel like theres much to gain from it
+
+
+ThreadSCL(t) = SCL::Lock(SigM.S.0, C.0, t); ThreadSCL1(t)
+ThreadSCL1(t) = (SCL::Await(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::Signal(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::SignalAll(SigM.S.0, C.0, t); ThreadSCL1(t))
+                [] (SCL::Unlock(SigM.S.0, C.0, t); ThreadSCL(t))
+
+
+-- Initialise systems of multiples of the threads above operating on 
+-- the same monitor in parallel. Note that here we block spurious wakeups
+
+ThreadsSCL = ||| t <- ThreadID @ ThreadSCL(t)
+
+-- The Det system blocks spurious wakeups, the other one allows them
+SCLSystem = SCL::runWith(ThreadsSCL, SigM.S.0, C.0)
+SCLSystemDet = SCL::runWithDet(ThreadsSCL, SigM.S.0, C.0)
+
+
+
+
+-- The following is spec process for a monitor. Since renaming between two 
+-- channels from two different modules seems not to work(?), we instead 
+-- here have a process with the channels given as parameters which can 
+-- be used to show that both the JVM and SCL monitor implementations 
+-- fulfil the spec as required
+-- The arguments are:
+--     (the ThreadID t holding the lock), 
+--     the set of waiting ThreadIDs, 
+--     the monitor identity used by the acquire and release channels, 
+--     the monitor identity includign any condition (for use by notify/wait etc)
+--     the channels used for acquire and releasing the lock
+--     the channels used for notifying/waiting
+
+-- Can also be extended to allow divergences for any non-correct calls
+SpecUnlocked(waiting, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel) = 
+     cAcq.monC?t:diff(ThreadID, union(set(waiting), poss)) -> 
+       SpecUnlocked(waiting, union(poss, {t}), monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] acq.monC?t:poss -> 
+       SpecLocked(t, false, false, waiting, diff(poss, {t}), monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+
+SpecLocked(t, toWait, toRel,  waiting, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel) = 
+     (not(toWait) and not(toRel)) 
+       & wait.monC.t -> 
+         SpecLocked(t, true, false, waiting, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] (toWait and not(toRel)) 
+       & rel.monC.t ->
+         SpecUnlocked(waiting^<t>, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel) and null(waiting)) 
+       & nfy.monC.t -> 
+         SpecLocked(t, false, false, <>, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel) and not(null(waiting))) 
+       & nfy.monC.t -> 
+         SpecLocked(t, false, false, tail(waiting), union(poss, {head(waiting)}), monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel)) 
+       & nfyAll.monC.t -> 
+         SpecLocked(t, false, false, <>, union(poss, set(waiting)), monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] (not(toWait) and not(toRel)) 
+       & cRel.monC.t -> 
+         SpecLocked(t, false, true, waiting, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)  
+  [] (not(toWait) and toRel) 
+       & rel.monC.t -> 
+         SpecUnlocked(waiting, poss, monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+  [] cAcq.monC?t':diff(ThreadID, Union({set(waiting), poss, {t}})) ->
+        SpecLocked(t, toWait, toRel, waiting, union(poss, {t'}), monC, acq, rel, nfy, nfyAll, wait, cAcq, cRel)
+
+
+SpecSCL = (SpecUnlocked(<>, {}, SigM.S.0.C.0, SCL::acquire, SCL::release,
+                        SCL::callSignal, SCL::callSignalAll, SCL::callAwait, 
+                        SCL::callAcquire, SCL::callRelease)) 
+
+-- Both satisfy refinement under traces, stable-failures
+-- Failures-divergences fails when spurious wakeups allowed
+
+--TODO: Add regulator?
+assert SpecSCL :[divergence free]
+assert (SpecSCL) [T= (SCLSystem) 
+assert (SpecSCL) [F= (SCLSystem) 
+assert (SpecSCL) [FD= (SCLSystem) 
+
+assert (SpecSCL) [T= (SCLSystemDet) 
+assert (SpecSCL) [F= (SCLSystemDet) 
+assert (SpecSCL) [FD= (SCLSystemDet) 
+
+
+
+-- I think this refinement is sufficient to show correctness of a monitor:
+--  - Traces shows that the spec and implementations can perform the 
+--    same operations at the same time
+--  - Failures show that these have the same rejections and that any 
+--    thread can be signalled to wake up/acquire the monitor at any 
+--    point whilst not waiting etc.
+--  - Divergence free (without spurious-wakeups); a generally 
+--    important safety property to have

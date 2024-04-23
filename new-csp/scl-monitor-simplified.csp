@@ -155,11 +155,23 @@ InitialiseMonDet0(m, c) =
 --     to park (after checking that their isReady returned false)
 --   - The threads that need to check their `isReady` value to determine whether to park again (false) or not (true)
 
+Standard''(m, c, t, l, trying, parked, toPark, awaitPark) = 
+     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
+        l(m, c, t, union(trying, {t'}), parked, toPark, awaitPark)
+  [] park.m.c?t':toPark ->
+         l(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
+  [] wakeUp.m.c?t':parked?_ ->
+         l(m, c, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
+  [] isReady.m.c?t'!t'!true ->
+         l(m, c, t, union(trying, {t'}), parked, toPark, diff(awaitPark, {t'}))
+  [] isReady.m.c?t'!t'!false -> 
+         l(m, c, t, trying, parked, union(toPark, {t'}), diff(awaitPark, {t'}))
+
 Unlocked''(m, c, trying, parked, toPark, awaitPark) =
      callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark})) -> 
        Unlocked''(m, c, union(trying, {t'}), parked, toPark, awaitPark)
   [] acquire.m.c?t:trying ->
-       Locked''(m, c, t, diff(trying, {t}), parked, toPark, awaitPark, false, false, false, false)
+       Locked''(m, c, t, diff(trying, {t}), parked, toPark, awaitPark)
   []  wakeUp.m.c?t':parked?_ ->
        Unlocked''(m, c, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
   [] park.m.c?t':toPark ->
@@ -169,44 +181,40 @@ Unlocked''(m, c, trying, parked, toPark, awaitPark) =
   [] isReady.m.c?t2!t2!false -> 
        Unlocked''(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}))
 
-Locked''(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll) = 
-  -- The 'unblockable' functions
-       callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
-        Locked''(m, c, t, union(trying, {t'}), parked, toPark, awaitPark, rel, wait, sig1, sigAll)
-  [] park.m.c?t':toPark ->
-         Locked''(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark, rel, wait, sig1, sigAll)
-  []  wakeUp.m.c?t':parked?_ ->
-         Locked''(m, c, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}), rel, wait, sig1, sigAll)
-  []   isReady.m.c?t1!t1!true ->
-         Locked''(m, c, t, union(trying, {t1}), parked, toPark, diff(awaitPark, {t1}), rel, wait, sig1, sigAll)
-  []   isReady.m.c?t2!t2!false -> 
-         Locked''(m, c, t, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}), rel, wait, sig1, sigAll)
-  -- Communications restricted by most recent function call by holding function
-  [] (sig1 or sigAll) & 
-       (setReady.m.c.t?t' ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, false, false, false, sigAll))
-  [] (sig1 or sigAll) & 
-       (isEmpty.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, false, false, false, false))
-  [] (rel) & 
-       (release.m.c.t ->
-         Unlocked''(m, c, trying, parked, toPark, awaitPark))
-  [] (wait) & 
-       (release.m.c.t ->
-         Unlocked''(m, c, trying, parked, toPark, union(awaitPark, {t})))
-  -- Allows calling of functions by holding thread
-  [] (not(sig1 or sigAll or rel)) & 
-       (callRelease.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, true, false, false, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callAwait.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, false, true, false, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callSignal.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, false, false, true, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callSignalAll.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark, false, false, false, true))
+Locked''(m, c, t, trying, parked, toPark, awaitPark) = 
+  Standard''(m, c, t, Locked'', trying, parked, toPark, awaitPark)
+  [] callRelease.m.c.t ->
+         LockedRelease''(m, c, t, trying, parked, toPark, awaitPark)
+  [] callAwait.m.c.t ->
+         LockedAwait''(m, c, t, trying, parked, toPark, awaitPark)
+  [] callSignal.m.c.t ->
+         LockedSignal''(m, c, t, trying, parked, toPark, awaitPark)
+  [] callSignalAll.m.c.t ->
+         LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark)
+
+LockedSignal''(m, c, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, c, t, LockedSignal'', trying, parked, toPark, awaitPark)
+  [] setReady.m.c.t?t' ->
+         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+  [] isEmpty.m.c.t ->
+         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+
+LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, c, t, LockedSignalAll'', trying, parked, toPark, awaitPark)
+  [] setReady.m.c.t?t' ->
+         LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark)
+  [] isEmpty.m.c.t ->
+         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+
+LockedAwait''(m, c, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, c, t, LockedAwait'', trying, parked, toPark, awaitPark)
+  [] release.m.c.t ->
+         Unlocked''(m, c, trying, parked, toPark, union(awaitPark, {t})) 
+
+LockedRelease''(m, c, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, c, t, LockedRelease'', trying, parked, toPark, awaitPark)
+  [] release.m.c.t ->
+         Unlocked''(m, c, trying, parked, toPark, awaitPark)      
 
 InitialiseMon0''(m, c) = 
   (Unlocked''(m, c, {}, {}, {}, {}) 

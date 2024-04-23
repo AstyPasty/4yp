@@ -7,7 +7,7 @@ datatype ConditionID = C.{0}--..2}
 
 -- This will include the version of the SCL monitor based on a 
 -- ParkSupport implementation
-include "scl-monitor-new-new.csp"
+include "scl-monitor-simplified.csp"
 
 instance SCL = SCLMonitor
 
@@ -84,20 +84,109 @@ SpecLocked(t, toWait, toRel,  waiting, poss, monC, acq, rel, nfy, nfyAll, wait, 
 
 SpecSCL = (SpecUnlocked(<>, {}, SigM.S.0.C.0, SCL::acquire, SCL::release,
                         SCL::callSignal, SCL::callSignalAll, SCL::callAwait, 
-                        SCL::callAcquire, SCL::callRelease)) 
+                        SCL::callAcquire, SCL::callRelease))
+
+monC = SigM.S.0.C.0  
+
+-- ThreadSCL'(t) = callAcquire.monC.t  -> ThreadSCL1'(t)
+-- ThreadSCL1'(t) = acquire.monC.t -> ThreadSCL2'(t)
+-- ThreadSCL2'(t) =    callSignal.monC.t -> ThreadSCL2'(t)
+--                  [] callSignalAll.monC.t -> ThreadSCL2'(t)
+--                  [] callRelease.monC.t -> release.monC.t -> ThreadSCL'(t)
+--                  [] callWait.monC.t -> release.monC.t -> ThreadSCL1'(t)
+
+SpecUnlocked'(waiting, poss) =
+  SCL::callAcquire.monC?t':diff(ThreadID, union(set(waiting), poss)) ->
+    SpecUnlocked'(waiting, union(poss,{t'}))
+  []
+  SCL::acquire.monC?t:poss -> SpecLocked'(t, waiting, diff(poss,{t}))   
+
+SpecLocked'(t, waiting, poss) =
+  SCL::callAwait.monC.t -> SpecLockedWaiting'(t, waiting, poss)
+  []
+  SCL::callSignal.monC.t -> (if waiting == <> then SpecLocked'(t, waiting, poss) 
+                             else SpecLocked'(t, tail(waiting), union(poss, {head(waiting)})))
+  []  
+  SCL::callSignalAll.monC.t -> (if null(waiting) then SpecLocked'(t, waiting, poss) 
+                               else SpecLocked'(t, <>, union(poss, set(waiting))))
+  []
+  SCL::callRelease.monC.t -> SpecLockedReleasing'(t, waiting, poss)
+  []
+  SCL::callAcquire.monC?t':diff(ThreadID, Union({set(waiting), poss, {t}})) -> 
+    SpecLocked'(t, waiting, union(poss, {t'}))
+
+-- t doing a wait; needs to release the lock
+SpecLockedWaiting'(t, waiting, poss) =
+  SCL::release.monC.t -> SpecUnlocked'(waiting^<t>, poss)
+  []
+  -- allow others to try to acquire
+  SCL::callAcquire.monC?t':diff(ThreadID, Union({set(waiting), poss, {t}})) ->
+    SpecLockedWaiting'(t, waiting, union(poss, {t'}))
+
+-- t releasing the lock
+SpecLockedReleasing'(t, waiting, poss) =
+  SCL::release.monC.t -> SpecUnlocked'(waiting, poss)
+  []
+  SCL::callAcquire.monC?t':diff(ThreadID, Union({set(waiting), poss, {t}})) ->
+    SpecLockedReleasing'(t, waiting, union(poss, {t'}))
+
+SpecSCL' = SpecUnlocked'(<>, {})  
+
+
+
+
+Thread''(t) = SCL::callAcquire.monC.t -> SCL::acquire.monC.t -> Thread1''(t)
+Thread1''(t) = 
+     SCL::callRelease.monC.t -> SCL::release.monC.t -> Thread''(t)
+  [] SCL::callAwait.monC.t -> SCL::release.monC.t -> SCL::acquire.monC.t -> Thread1''(t)
+  [] SCL::callSignal.monC.t -> Thread1''(t)
+  [] SCL::callSignalAll.monC.t -> Thread1''(t)
+ 
+SpecUnlocked''(waiting) =
+  SCL::acquire.monC?t:diff(ThreadID, set(waiting)) -> SpecLocked''(t, waiting)   
+
+SpecLocked''(t, waiting) =
+  SCL::callAwait.monC.t -> SCL::release.monC.t -> SpecUnlocked''(waiting^<t>)
+  []
+  SCL::callSignal.monC.t -> (if waiting == <> then SpecLocked''(t, waiting) 
+                             else SpecLocked''(t, tail(waiting)))
+  []  
+  SCL::callSignalAll.monC.t -> (if null(waiting) then SpecLocked''(t, waiting) 
+                               else SpecLocked''(t, <>))
+  []
+  SCL::release.monC.t -> SpecUnlocked''(waiting)
+
+SpecSCL'' = SpecUnlocked''(<>) [|{|SCL::acquire.monC, SCL::release.monC, SCL::callAwait.monC, SCL::callSignal.monC, SCL::callSignalAll.monC|}|] 
+            (||| t <- ThreadID @ Thread''(t))
+
 
 -- Both satisfy refinement under traces, stable-failures
 -- Failures-divergences fails when spurious wakeups allowed
 
 --TODO: Add regulator?
-assert SpecSCL :[divergence free]
-assert (SpecSCL) [T= (SCLSystem) 
-assert (SpecSCL) [F= (SCLSystem) 
-assert (SpecSCL) [FD= (SCLSystem) 
 
-assert (SpecSCL) [T= (SCLSystemDet) 
-assert (SpecSCL) [F= (SCLSystemDet) 
-assert (SpecSCL) [FD= (SCLSystemDet) 
+assert SpecSCL [F= SpecSCL'
+assert SpecSCL' [F= SpecSCL
+
+assert SpecSCL' [F= SpecSCL''
+assert SpecSCL'' [F= SpecSCL'
+
+assert (SpecSCL') [T= (SCLSystem) 
+assert (SpecSCL') [F= (SCLSystem) 
+assert (SpecSCL') [FD= (SCLSystem) 
+
+assert (SpecSCL') [T= (SCLSystemDet) 
+assert (SpecSCL') [F= (SCLSystemDet) 
+assert (SpecSCL') [FD= (SCLSystemDet) 
+
+assert SpecSCL'' :[divergence free]
+assert (SpecSCL'') [T= (SCLSystem) 
+assert (SpecSCL'') [F= (SCLSystem) 
+assert (SpecSCL'') [FD= (SCLSystem) 
+
+assert (SpecSCL'') [T= (SCLSystemDet) 
+assert (SpecSCL'') [F= (SCLSystemDet) 
+assert (SpecSCL'') [FD= (SCLSystemDet) 
 
 
 

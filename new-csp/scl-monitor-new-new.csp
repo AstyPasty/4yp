@@ -147,9 +147,9 @@ InitialiseMonDet0(m, c) =
 SyncSet(m, c) =
   union(External(m, c), HideSet(m, c))
 
-HideSet(m, c) = 
-  {|park.m.c, unpark.m.c, wakeUp.m.c, enqueue.m.c, dequeue.m.c, setReady.m.c, 
-    isReady.m.c, isEmpty.m.c|}
+HideSet(m, setC) = 
+  {|Union({park.m.c, unpark.m.c, wakeUp.m.c, enqueue.m.c, dequeue.m.c, setReady.m.c, 
+    isReady.m.c, isEmpty.m.c | member(c, cnd)})|}
 
 
 exports
@@ -158,14 +158,14 @@ channel acquire, release: MonitorID.ConditionID.ThreadID
 channel callAcquire, callRelease: MonitorID.ConditionID.ThreadID
 channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
 channel callSignal: MonitorID.ConditionID.ThreadID
-External(m, c) = 
-  {|callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m.c, 
-    acquire.m.c, callRelease.m.c, release.m.c|}
+External(m, setC) = 
+  {|{callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m.c, 
+    acquire.m.c, callRelease.m.c, release.m.c | member(c, setC)}|}
 
 
 InitialiseMon(mon, cnd) = InitialiseMon0(mon, cnd)
-runWith(P, mon, cnd) = 
-  (P [|SyncSet(mon, cnd)|] InitialiseMon(mon, cnd) \ HideSet(mon, cnd))
+runWith(P, mon, setCnd) = 
+  (P [|union({SyncSet(mon, cnd) | member(cnd, setCnd)})|] InitialiseMon(mon, cnd) \ HideSet(mon, cnd))
 
 InitialiseMonDet(mon, cnd) = InitialiseMonDet0(mon, cnd)
 runWithDet(P, mon, cnd) = 

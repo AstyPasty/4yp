@@ -1,18 +1,26 @@
 module SCLMonitor
 
 
--- Including lock-support, but not as a module as multiple levels of module instances are not allowed
+-- Including lock-support, but not as a module as multiple levels of module 
+-- instances are not allowed
 include "lock-support.csp"
 
-
+-- Convention is monitor, condition, calling thread, target thread, 
+-- has target been marked as ready
 channel enqueue, dequeue, setReady: MonitorID.ConditionID.ThreadID.ThreadID
 channel isReady: MonitorID.ConditionID.ThreadID.ThreadID.Bool
 channel isEmpty: MonitorID.ConditionID.ThreadID
-
 channel await, signalAll: MonitorID.ConditionID.ThreadID
-channel wakeUp: MonitorID.ConditionID.ThreadID.Bool
+
 
 -- Models the waiters queue, also allowing updates to the thread readiness
+-- We use the seq to simulate the queue, allowing other thread to 
+-- dequeue and unpark a thread
+-- The set contains all the 'ready' threads - those which won't park 
+-- again after they next check isReady. We remove a thread from the 
+-- set when it is next enqueued (about to wait again); this isn't an 
+-- issue as threads are only dequeued once per enqueue, hence we don't
+-- incorrecty block an unpark
 Waiting :: (MonitorID, ConditionID, <ThreadID>, {ThreadID}) -> Proc
 Waiting(mon, cnd, <>, rs) = 
      isEmpty.mon.cnd?t -> Waiting(mon, cnd, <>, rs)
@@ -39,223 +47,183 @@ Signal1(mon, cnd, t) =
      isEmpty.mon.cnd.t -> SKIP
   [] dequeue.mon.cnd.t?t2 -> isReady.mon.cnd.t.t2?b ->
       if b then Signal1(mon, cnd, t)
-      else setReady.mon.cnd.t.t2 -> Unpark(mon, cnd, t, t2); SKIP
+      else setReady.mon.cnd.t.t2 -> Unpark(mon, t, t2); SKIP
 
 SignalAll1(mon, cnd, t) =
      isEmpty.mon.cnd.t -> SKIP
   [] dequeue.mon.cnd.t?t2 -> setReady.mon.cnd.t.t2 -> 
-          Unpark(mon, cnd, t, t2); SignalAll1(mon, cnd, t)
+          Unpark(mon, t, t2); SignalAll1(mon, cnd, t)
 
 Await1(mon, cnd, t) = 
-  enqueue.mon.cnd.t.t -> release.mon.cnd.t -> Await2(mon, cnd, t)
+  enqueue.mon.cnd.t.t -> release.mon.t -> Await2(mon, cnd, t)
 
 Await2(mon, cnd, t) = 
-  isReady.mon.cnd.t.t?b -> if b then acquire.mon.cnd.t -> SKIP
-                           else Park(mon, cnd, t); Await2(mon, cnd, t)
+  isReady.mon.cnd.t.t?b -> if b then acquire.mon.t -> SKIP
+                           else Park(mon, t); Await2(mon, cnd, t)
 
 
+-- We now consider the workings of the monitor
 -- We seperate the threads into 5 partitions:
---   - Those that haven't `callAcquire`, at least since they last released the 
---     lock: their next communication is a callAcquire
---   - The threads that are `trying` to acquire the lock;  their next 
+--   - Those that haven't communicated a `callAcquire`, at least 
+--     since they last released the lock: their next communication is 
+--     a callAcquire
+--   - (trying) The threads that are `trying` to acquire the lock;  their next 
 --     communication is an `acquire`
---   - The parked threads that haven't woken up; their next communication is a 
---     wakeUp (spurious or otherwise)
---   - The threads that are about `toPark`, with their next communication being 
---     to park (either after awaiting or a spurious wakeup)
---   - The threads 
-Unlocked'(m, c, trying, parked, toPark, awaitPark) =
-     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark})) -> 
-       Unlocked'(m, c, union(trying, {t'}), parked, toPark, awaitPark)
-  [] acquire.m.c?t:trying ->
-       Locked'(m, c, t, diff(trying, {t}), parked, toPark, awaitPark, false, false, false, false)
-  [] wakeUp.m.c?t':parked!false -> 
-       Unlocked'(m, c, trying, diff(parked, {t'}), union(toPark, {t'}), awaitPark)
-  [] wakeUp.m.c?t':parked!true -> 
-       Unlocked'(m, c, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
-  [] park.m.c?t':union(toPark, awaitPark) ->
-       --Unlocked'(m, c, trying, union(parked, {t'}), diff(toPark, {t'}), diff(awaitPark, {t'}))
-       Unlocked'(m, c, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
-  -- [] isReady.m.c?t1?t2:diff(ThreadID, {t1})?_ ->
-  --      Unlocked'(m, c, trying, parked, toPark, awaitPark)
-  [] isReady.m.c?t1!t1!true ->
-       --Unlocked'(m, c, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1}))
-       Unlocked'(m, c, union(trying, {t1}), parked, diff(toPark, {t1}), awaitPark)
-  [] isReady.m.c?t2!t2!false -> 
-       Unlocked'(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}))
+--   - (parked) The parked threads that haven't woken up; their next 
+--     communication is a  wakeUp (spurious or otherwise)
+--   - (toPark) The threads that are about `toPark`, with their next  
+--     communication being to park (after checking that their isReady returned 
+--     false)
+--   - (awaitPark) The threads that need to check their `isReady` value to 
+--     determine whether to park again (false) or not (true)
+
+-- The two definitions of Standard'' are used as abbreviations for the
+-- different communications that cannot be blocked - these are:
+--  - A thread trying to obtain the lock
+--  - A thread parks
+--  - A thread wakes up (spuriously or otherwise)
+--  - A thread checks if it isReady (the while loop test)
+-- One of the standard definitions passes a ConditionID around when 
+-- that required, the other doesn't
+Standard''(m, t, l, trying, parked, toPark, awaitPark) = 
+     callAcquire.m?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
+        l(m, t, union(trying, {t'}), parked, toPark, awaitPark)
+  [] park.m?t':toPark ->
+         l(m, t, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
+  [] wakeUp.m?t':parked?_ ->
+         l(m, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
+  [] isReady.m?c'?t'!t'!true ->
+         l(m, t, union(trying, {t'}), parked, toPark, diff(awaitPark, {t'}))
+  [] isReady.m?c'?t'!t'!false ->
+         l(m, t, trying, parked, union(toPark, {t'}), diff(awaitPark, {t'}))
 
 
-Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll) = 
-  -- The 'unblockable' functions
-       callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
-        Locked'(m, c, t, union(trying, {t'}), parked, toPark, awaitPark, rel, wait, sig1, sigAll)
-  []   park.m.c?t':union(toPark, awaitPark) ->
-         --Locked'(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), diff(awaitPark, {t'}), rel, wait, sig1, sigAll)
-         Locked'(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark, rel, wait, sig1, sigAll)
-  []   wakeUp.m.c?t':parked!false -> 
-         Locked'(m, c, t, trying, diff(parked, {t'}), union(toPark, {t'}), awaitPark, rel, wait, sig1, sigAll)
-  []   wakeUp.m.c?t':parked!true -> 
-         Locked'(m, c, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}), rel, wait, sig1, sigAll)
-  -- []   isReady.m.c?t1?t2:diff(ThreadID, {t1})?_ ->
-  --        Locked'(m, c, t, trying, parked, toPark, awaitPark, rel, wait, sig1, sigAll)
-  []   isReady.m.c?t1!t1!true ->
-         --Locked'(m, c, t, union(trying, {t1}), parked, diff(toPark, {t1}), diff(awaitPark, {t1}), rel, wait, sig1, sigAll)
-         Locked'(m, c, t, union(trying, {t1}), parked, diff(toPark, {t1}), awaitPark, rel, wait, sig1, sigAll)
-  []   isReady.m.c?t2!t2!false -> 
-         Locked'(m, c, t, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}), rel, wait, sig1, sigAll)
-  -- Communications restricted by most recent function call by holding function
-  [] (sig1 or sigAll) & 
-       (setReady.m.c.t?t' ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, sigAll))
-  [] (sig1 or sigAll) & 
-       (isEmpty.m.c.t ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, false))
-  [] (rel) & 
-       (release.m.c.t ->
-         Unlocked'(m, c, trying, parked, toPark, awaitPark))
-  [] (wait) & 
-       (release.m.c.t ->
-         Unlocked'(m, c, trying, parked, toPark, union(awaitPark, {t})))
-  -- Allows calling of functions by holding thread
-  [] (not(sig1 or sigAll or rel)) & 
-       (callRelease.m.c.t ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, true, false, false, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callAwait.m.c.t ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, false, true, false, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callSignal.m.c.t ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, true, false))
-  [] (not(sig1 or sigAll or rel)) & 
-       (callSignalAll.m.c.t ->
-         Locked'(m, c, t, trying, parked, toPark, awaitPark, false, false, false, true))
-
-InitialiseMon0(m, c) = 
-  (Unlocked'(m, c, {}, {}, {}, {}) 
-    [|union({|wakeUp.m.c, park.m.c, setReady.m.c, isEmpty.m.c|},
-            {isReady.m.c.t.t.b | t <- ThreadID, b <- Bool})|] 
-      (Waiting(m, c, <>, {}) ||| InitLockSupp(m, c)))
-
-InitialiseMonDet0(m, c) = 
-  (Unlocked'(m, c, {}, {}, {}, {}) 
-    [|union({|wakeUp.m.c, park.m.c, setReady.m.c, isEmpty.m.c|},
-            {isReady.m.c.t.t.b | t <- ThreadID, b <- Bool})|]
-      (Waiting(m, c, <>, {}) ||| InitLockSuppDet(m, c)))
-
-
-
--- We seperate the threads into 5 partitions:
---   - Those that haven't `callAcquire`, at least since they last released the 
---     lock: their next communication is a callAcquire
---   - The threads that are `trying` to acquire the lock;  their next 
---     communication is an `acquire`
---   - The parked threads that haven't woken up; their next communication is a 
---     wakeUp (spurious or otherwise)
---   - The threads that are about `toPark`, with their next communication being 
---     to park (after checking that their isReady returned false)
---   - The threads that need to check their `isReady` value to determine whether to park again (false) or not (true)
-
-Standard''(m, c, t, l, trying, parked, toPark, awaitPark) = 
-     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
+StandardC''(m, c, t, l, trying, parked, toPark, awaitPark) = 
+     callAcquire.m?t':diff(ThreadID, Union({trying, parked, toPark, {t}})) ->
         l(m, c, t, union(trying, {t'}), parked, toPark, awaitPark)
-  [] park.m.c?t':toPark ->
+  [] park.m?t':toPark ->
          l(m, c, t, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
-  [] wakeUp.m.c?t':parked?_ ->
+  [] wakeUp.m?t':parked?_ ->
          l(m, c, t, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
-  [] isReady.m.c?t'!t'!true ->
+  [] isReady.m?c'?t'!t'!true ->
          l(m, c, t, union(trying, {t'}), parked, toPark, diff(awaitPark, {t'}))
-  [] isReady.m.c?t'!t'!false -> 
+  [] isReady.m?c'?t'!t'!false ->
          l(m, c, t, trying, parked, union(toPark, {t'}), diff(awaitPark, {t'}))
 
-Unlocked''(m, c, trying, parked, toPark, awaitPark) =
-     callAcquire.m.c?t':diff(ThreadID, Union({trying, parked, toPark})) -> 
-       Unlocked''(m, c, union(trying, {t'}), parked, toPark, awaitPark)
-  [] acquire.m.c?t:trying ->
-       Locked''(m, c, t, diff(trying, {t}), parked, toPark, awaitPark)
-  []  wakeUp.m.c?t':parked?_ ->
-       Unlocked''(m, c, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
-  [] park.m.c?t':toPark ->
-       Unlocked''(m, c, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
-  [] isReady.m.c?t1!t1!true ->
-       Unlocked''(m, c, union(trying, {t1}), parked, toPark, diff(awaitPark, {t1}))
-  [] isReady.m.c?t2!t2!false -> 
-       Unlocked''(m, c, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}))
 
-Locked''(m, c, t, trying, parked, toPark, awaitPark) = 
-  Standard''(m, c, t, Locked'', trying, parked, toPark, awaitPark)
-  [] callRelease.m.c.t ->
-         LockedRelease''(m, c, t, trying, parked, toPark, awaitPark)
-  [] callAwait.m.c.t ->
+-- The unlocked monitor, offers all the standard options plus the ability for a 
+-- thread to obtain the lock
+Unlocked''(m, trying, parked, toPark, awaitPark) =
+     callAcquire.m?t':diff(ThreadID, Union({trying, parked, toPark})) -> 
+       Unlocked''(m, union(trying, {t'}), parked, toPark, awaitPark)
+  [] acquire.m?t:trying ->
+       Locked''(m, t, diff(trying, {t}), parked, toPark, awaitPark)
+  []  wakeUp.m?t':parked?_ ->
+       Unlocked''(m, trying, diff(parked, {t'}), toPark, union(awaitPark, {t'}))
+  [] park.m?t':toPark ->
+       Unlocked''(m, trying, union(parked, {t'}), diff(toPark, {t'}), awaitPark)
+  [] isReady.m?c?t1!t1!true ->
+       Unlocked''(m, union(trying, {t1}), parked, toPark, diff(awaitPark, {t1}))
+  [] isReady.m?c?t2!t2!false -> 
+       Unlocked''(m, trying, parked, union(toPark, {t2}), diff(awaitPark, {t2}))
+
+-- t now holds the lock, offers the ability for it to 'call' the relevant functions
+Locked''(m, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, t, Locked'', trying, parked, toPark, awaitPark)
+  [] callRelease.m.t ->
+         LockedRelease''(m, t, trying, parked, toPark, awaitPark)
+  [] callAwait.m?c!t ->
          LockedAwait''(m, c, t, trying, parked, toPark, awaitPark)
-  [] callSignal.m.c.t ->
+  [] callSignal.m?c!t ->
          LockedSignal''(m, c, t, trying, parked, toPark, awaitPark)
-  [] callSignalAll.m.c.t ->
+  [] callSignalAll.m?c!t ->
          LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark)
 
+-- t holds the lock and is completing a signal on ConditionID c
 LockedSignal''(m, c, t, trying, parked, toPark, awaitPark) = 
-     Standard''(m, c, t, LockedSignal'', trying, parked, toPark, awaitPark)
+     StandardC''(m, c, t, LockedSignal'', trying, parked, toPark, awaitPark)
   [] setReady.m.c.t?t' ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+         Locked''(m, t, trying, parked, toPark, awaitPark)
   [] isEmpty.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+         Locked''(m, t, trying, parked, toPark, awaitPark)
 
+-- t holds the lock and is completing a signalAll on ConditionID c
 LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark) = 
-     Standard''(m, c, t, LockedSignalAll'', trying, parked, toPark, awaitPark)
+     StandardC''(m, c, t, LockedSignalAll'', trying, parked, toPark, awaitPark)
   [] setReady.m.c.t?t' ->
          LockedSignalAll''(m, c, t, trying, parked, toPark, awaitPark)
   [] isEmpty.m.c.t ->
-         Locked''(m, c, t, trying, parked, toPark, awaitPark)
+         Locked''(m, t, trying, parked, toPark, awaitPark)
 
+-- t holds the lock and is completing an await on ConditionID c
 LockedAwait''(m, c, t, trying, parked, toPark, awaitPark) = 
-     Standard''(m, c, t, LockedAwait'', trying, parked, toPark, awaitPark)
-  [] release.m.c.t ->
-         Unlocked''(m, c, trying, parked, toPark, union(awaitPark, {t})) 
+     StandardC''(m, c, t, LockedAwait'', trying, parked, toPark, awaitPark)
+  [] release.m.t ->
+         Unlocked''(m, trying, parked, toPark, union(awaitPark, {t})) 
 
-LockedRelease''(m, c, t, trying, parked, toPark, awaitPark) = 
-     Standard''(m, c, t, LockedRelease'', trying, parked, toPark, awaitPark)
-  [] release.m.c.t ->
-         Unlocked''(m, c, trying, parked, toPark, awaitPark)      
+-- t holds the lock and is about to release it
+LockedRelease''(m, t, trying, parked, toPark, awaitPark) = 
+     Standard''(m, t, LockedRelease'', trying, parked, toPark, awaitPark)
+  [] release.m.t ->
+         Unlocked''(m, trying, parked, toPark, awaitPark)      
 
-InitialiseMon0''(m, c) = 
-  (Unlocked''(m, c, {}, {}, {}, {}) 
-    [|union({|wakeUp.m.c, park.m.c, setReady.m.c, isEmpty.m.c|},
-            {isReady.m.c.t.t.b | t <- ThreadID, b <- Bool})|] 
-      (Waiting(m, c, <>, {}) ||| InitLockSupp(m, c)))
+-- The parallel composition of the monitor
+-- Each condition has its own Waiting 'array', which syncs with the 
+-- monitor on isReady, setReady and isEmpty (letting the monitor see 
+-- if a thread is going to park again/try to acquire; signalling 
+-- another thread;  no other thread to signal on a condition)
+-- The monitor syncs with the LockSupport on park and wakeUp events; 
+-- we don't synchronise on unparks as the thread does not become 
+-- active immediately on such a communication
+-- The LockSupport and Waiting 'array's have no interactions
 
-InitialiseMonDet0''(m, c) = 
-  (Unlocked''(m, c, {}, {}, {}, {}) 
-    [|union({|wakeUp.m.c, park.m.c, setReady.m.c, isEmpty.m.c|},
-            {isReady.m.c.t.t.b | t <- ThreadID, b <- Bool})|]
-      (Waiting(m, c, <>, {}) ||| InitLockSuppDet(m, c)))
+InitialiseMon0''(m, setC) = 
+  (Unlocked''(m, {}, {}, {}, {}) 
+    [|{|wakeUp.m, park.m, setReady.m.c, isEmpty.m.c, isReady.m.c.t.t 
+            | t <- ThreadID, c <- setC|}|] 
+  ((||| c <- setC @ Waiting(m, c, <>, {})) ||| InitLockSupp(m)))
+
+-- The same as the above, but using the LockSupport version with 
+-- spurious wakeups (wakeUp._.false) blocked
+InitialiseMonDet0''(m, setC) = 
+  (Unlocked''(m, {}, {}, {}, {}) 
+    [|{|wakeUp.m, park.m, setReady.m.c, isEmpty.m.c, isReady.m.c.t.t
+              | t <- ThreadID, c <- setC|}|] 
+  (( ||| c <- setC @ Waiting(m, c, <>, {})) ||| InitLockSuppDet(m)))
 
 
+-- The set that synchronises with a set of threads using the monitor
+SyncSet(m, setC) =
+  union(External(m, setC), HideSet(m, setC))
 
-SyncSet(m, c) =
-  union(External(m, c), HideSet(m, c))
-
-HideSet(m, c) = 
-  {|park.m.c, unpark.m.c, wakeUp.m.c, enqueue.m.c, dequeue.m.c, setReady.m.c, 
-    isReady.m.c, isEmpty.m.c|}
+--The set of events that are hidden when a thread uses the monitor
+HideSet(m, setC) = 
+  {|park.m, unpark.m, wakeUp.m, enqueue.m.c, dequeue.m.c, 
+    setReady.m.c, isReady.m.c, isEmpty.m.c | c <- setC|}
 
 
 exports
 
-channel acquire, release: MonitorID.ConditionID.ThreadID
-channel callAcquire, callRelease: MonitorID.ConditionID.ThreadID
+channel acquire, release: MonitorID.ThreadID
+channel callAcquire, callRelease: MonitorID.ThreadID
 channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
 channel callSignal: MonitorID.ConditionID.ThreadID
-External(m, c) = 
-  {|callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m.c, 
-    acquire.m.c, callRelease.m.c, release.m.c|}
+
+-- The set of externally visible events
+External(m, setC) = 
+  {|callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m, 
+    acquire.m, callRelease.m, release.m | c <- setC|}
 
 
-InitialiseMon(mon, cnd) = InitialiseMon0''(mon, cnd)
-runWith(P, mon, cnd) = 
-  (P [|SyncSet(mon, cnd)|] InitialiseMon(mon, cnd) \ HideSet(mon, cnd))
+-- Runs the monitor with internal spurious wakeups
+runWith(P, mon, setC) = 
+  ((P [|SyncSet(mon, setC)|] 
+        InitialiseMon0''(mon, setC)) \ HideSet(mon, setC))
 
-InitialiseMonDet(mon, cnd) = InitialiseMonDet0''(mon, cnd)
-runWithDet(P, mon, cnd) = 
-  (P [|SyncSet(mon, cnd)|] InitialiseMonDet(mon, cnd) \  HideSet(mon, cnd))
+-- Runs the monitor without internal spurious wakeups
+runWithDet(P, mon, setC) = 
+  ((P [|SyncSet(mon, setC)|] 
+        InitialiseMonDet0''(mon, setC)) \  HideSet(mon, setC))
   
 
 -- Operations on the monitor
@@ -268,10 +236,10 @@ Signal(mon, cnd, t) = callSignal.mon.cnd.t ->
 SignalAll(mon, cnd, t) = callSignalAll.mon.cnd.t -> 
                             SignalAll1(mon, cnd, t)
 
-Lock(mon, cnd, t) = callAcquire.mon.cnd.t -> 
-                    acquire.mon.cnd.t -> SKIP
+Lock(mon, t) = callAcquire.mon.t -> 
+                    acquire.mon.t -> SKIP
 
-Unlock(mon, cnd, t) = callRelease.mon.cnd.t -> 
-                    release.mon.cnd.t -> SKIP
+Unlock(mon, t) = callRelease.mon.t -> 
+                    release.mon.t -> SKIP
 
 endmodule

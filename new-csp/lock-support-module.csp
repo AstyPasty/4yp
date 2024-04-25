@@ -1,42 +1,29 @@
--- Currently fails to compile with the bizarre error message:
-
--- monitor-comparison.csp> :load C:\Users\tom\Documents\repos\4yp\new-csp\monitor-comparison.csp
--- monitor-comparison.csp> 
--- panic: the program has detected an inconsistent internal state.
---     This means that there is a bug in libcspm, not a bug in your input script.
---     Please report this bug using the contact link at https://cocotec.io/fdr/.
---     In particular, please include the input script that caused this error and a brief
---     description of how to reproduce the problem. Please also include the following message:
---         ValueNotFoundException (Qual {unRenamedNameModuleName = OccName "Locks", unRenamedNameMemberName = UnQual (OccName "LockSupport")})
-
--- Equivalent definition without using modules does work
-
-
 module LockSupport
 
   channel park: MonitorID.ConditionID.ThreadID
   channel wakeUp: MonitorID.ConditionID.ThreadID.Bool
   channel unpark: MonitorID.ConditionID.ThreadID.ThreadID
 
-  --wakeUp._._._.false indicates a spurious wakeup
-
   LockSupport0 :: (MonitorID, ConditionID) -> Proc
   LockSupport0(m, c) = LockSupport(m, c, {}, {})
   LockSupport1(m, c, waiting, permits) =
     park.m.c?t -> (
       if member(t, permits)
-        then wakeUp.m.c.t.true -> LockSupport(m, c, waiting, diff(permits, {t}))
-      else LockSupport(m, c, union(waiting, {t}), permits) )
+        then wakeUp.m.c.t.true -> 
+              LockSupport(m, c, waiting, diff(permits, {t}))
+      else LockSupport(m, c, union(waiting, {t}), permits))
     []
     unpark.m.c?t?t2 -> (
       if member(t2, waiting)
-        then wakeUp.m.c.t2.true -> LockSupport(m, c, diff(waiting, {t2}), permits)
+        then wakeUp.m.c.t2.true -> 
+              LockSupport(m, c, diff(waiting, {t2}), permits)
       else LockSupport(m, c, waiting, union(permits, {t2})))
 
   LockSupport(m, c, waiting, permits) =
     if waiting == {} then LockSupport1(m, c, waiting, permits)
     else (LockSupport1(m, c, waiting, permits)
-      |~| wakeUp.m.c$t:waiting!false -> LockSupport(m, c, diff(waiting, {t}), permits) )
+      |~| wakeUp.m.c$t:waiting!false -> 
+           LockSupport(m, c, diff(waiting, {t}), permits))
 
 exports
 

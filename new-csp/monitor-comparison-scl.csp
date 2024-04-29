@@ -1,8 +1,8 @@
-n = 3
+n = 5
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0}--..n-1}
 datatype MonitorID = SigM.SignalID
-datatype ConditionID = C.{0, 1}--..2}
+datatype ConditionID = C.{0..2}
 
 
 -- This will include the version of the SCL monitor based on a 
@@ -18,13 +18,13 @@ instance SCL = SCLMonitor
 
 -- TODO: parametise over ConditionID correctly
 ThreadSCL(t) = SCL::Lock(SigM.S.0, t); ThreadSCL1(t)
-ThreadSCL1(t) =   (SCL::Unlock(SigM.S.0, t); ThreadSCL(t))
-                [] (SCL::Await(SigM.S.0, C.0, t); ThreadSCL1(t))
-                [] (SCL::Signal(SigM.S.0, C.0, t); ThreadSCL1(t))
-                [] (SCL::SignalAll(SigM.S.0, C.0, t); ThreadSCL1(t))
-                [] (SCL::Await(SigM.S.0, C.1, t); ThreadSCL1(t))
-                [] (SCL::Signal(SigM.S.0, C.1, t); ThreadSCL1(t))
-                [] (SCL::SignalAll(SigM.S.0, C.1, t); ThreadSCL1(t))
+ThreadSCL1(t) =   
+  [] c : ConditionID @ (SCL::Await(SigM.S.0, c, t); ThreadSCL1(t))      
+  [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
+  [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
+  [] (SCL::SignalAll(SigM.S.0, c, t); ThreadSCL1(t))
+  [] (SCL::Unlock(SigM.S.0, t); ThreadSCL(t))
+
  
 
 

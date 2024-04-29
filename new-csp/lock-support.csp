@@ -35,7 +35,7 @@ LockSupportDet1(m, waiting, permits) =
     if member(t2, waiting)
       then wakeUp.m.t2.true -> LockSupportDet(m, diff(waiting, {t2}), permits)
     else LockSupportDet(m, waiting, union(permits, {t2})))
-LockSupportDet(m, waiting, permits) =LockSupportDet1(m, waiting, permits)
+LockSupportDet(m, waiting, permits) = LockSupportDet1(m, waiting, permits)
 
 InitLockSuppDet(m) = LockSupportDet0(m)
 

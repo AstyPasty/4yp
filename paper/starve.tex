@@ -28,7 +28,7 @@ $\qquad \, \: (\exists a \leq s' . \,\, (a\, \hat{ }\,\langle lockObtained.t\ran
 
 \end{flushleft}
 
-I believe the above works as a specification for starvation freedom as it asserts that |callLock.t| occurs at most once more than |lockObtained.t| in $s$ (correct behaviour of the lock). We also have that either |t| is not trying to acquire the lock at the end of $s$ or that for any finite trace $s'$ st. $(s\hat{ }s', ref') \in failures(P)$, we have that if $ref' = \Sigma$ i.e.~the system has terminated, then $s'$ must contain exactly one more |lockObtained.t| than |callLock.t| in order to terminate without |t| still waiting for the lock. I believe the last line asserts that for infinite $s'$, there exists some finite prefix $a$ such that $(a\, \hat{ }\,\langle lockObtained.t\rangle) \leq s')$, but am not certain of if there is a way to assert that a is finite (or if indeed this is even necessary). Regulator processes for these individual requirements seem obvious except for last line, that |lockObtained.t| occurs in some finite prefix of $s'$. A process |C(t) = P(0) [> lockObtained.t -> STOP| where |P(n, t) = [] a: LockChans @ a.L.0?s: diff(ThreadID, {t}) -> P(n+1, t)| restricts to countably infinite prefixes, but I can't find a unartificial way of restricting to finite prefixes (are traces restricted in length in FDR?).
+I believe the above works as a specification for starvation freedom as it asserts that |callLock.t| occurs at most once more than |lockObtained.t| in $s$ (correct behaviour of the lock). We also have that either |t| is not trying to acquire the lock at the  end of $s$ or that for any finite trace $s'$ st. $(s\hat{ }s', ref') \in failures(P)$, we have that if $ref' = \Sigma$ i.e.~the system has terminated, then $s'$ must contain exactly one more |lockObtained.t| than |callLock.t| in order to terminate without |t| still waiting for the lock. I believe the last line asserts that for infinite $s'$, there exists some finite prefix $a$ such that $(a\, \hat{ }\,\langle lockObtained.t\rangle) \leq s')$, but am not certain of if there is a way to assert that a is finite (or if indeed this is even necessary). Regulator processes for these individual requirements seem obvious except for last line, that |lockObtained.t| occurs in some finite prefix of $s'$. A process |C(t) = P(0) [> lockObtained.t -> STOP| where |P(n, t) = [] a: LockChans @ a.L.0?s: diff(ThreadID, {t}) -> P(n+1, t)| restricts to countably infinite prefixes, but I can't find a unartificial way of restricting to finite prefixes (are traces restricted in length in FDR?).
 
 If this is not possible then we can resort to capturing the stronger property of first-come-first-served, which in turn implies starvation-freedom. We do this by extending |LockEvents| to |FCFSLockEvents = union(LockEvents)|. We then construct |FCFSActualSystemR = ActualSystemR [[*doorwayEvent?t* <- doorwayComplete.t]]| and |FCFSActualSystemRExtDiv = FCFSActualSystemR \ InternalChannels|.
 
@@ -87,4 +87,18 @@ I haven't been able to think of/find any lock implementations that are starvatio
 
   assert FCFS({}, {}, ThreadID) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}
 \end{cspm}
+
+\subsubsection{$\omega$-regular languages}
+
+\framebox{Currently incorrect}
+
+Starvation freedom can be quite easily expressed as a $\omega$-regular language. Indeed, if we rename all internal actions in |ActualSystemR| to |wait| and hide all |callLock| and |lockAcquired| events from threads other than |t|, the lock is starvation free for thread |t| if it can produce all traces of the following $\omega$-regular language:
+\begin{cspm}
+  ((£$\neg$£(callLock.t))£$^{*}$£.(callLock.t).(wait)£$^{*}$£.(lockAcquired.t))£$^{\omega}$£ + 
+  ((£$\neg$£(callLock.t))£$^{*}$£.(callLock.t).(wait)£$^{*}$£.(lockAcquired.t))*.(£$\neg$£(callLock.t))£$^{\omega}$£
+\end{cspm}
+
+We can therefore also model starvation freedom using B{\"u}chi automata, which accepts infinite traces that reach an accepting state an infinite number of times
+
+
 

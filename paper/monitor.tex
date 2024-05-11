@@ -70,3 +70,8 @@ endmodule
 \end{figure}
 
 Each monitor provides |Wait(o, t)|, |Notify(o, t)| and |Synchronized(o, t, Proc)| methods to model the equivalent functions/blocks in SCL. The |Proc| parameter is used to specify the process that will be run inside the |Synchronized| block; the intended usage of this is of the form |callFunc.o.t -> Synchronized(o, t, syncFunc)| where the process communicates that it is calling the model of fucntion |Func| before completing the rest of the function whilst holding the monitor lock.
+
+% \subsection{|LockSupport|}
+
+% \lstinputlisting{C:\Users\tom\Documents\repos\4yp\new-csp\lock-support-module.csp}
+

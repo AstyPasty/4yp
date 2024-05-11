@@ -7,12 +7,12 @@ include "lock-support.csp"
 
 -- Convention is monitor, condition, calling thread, target thread, 
 -- has target been marked as ready
-datatype Node = N.ThreadID
+datatype Node = N.{0..n-1}
 
 channel enqueue, dequeue: MonitorID.ConditionID.ThreadID.Node.ThreadID
 channel setReady: Node.ThreadID.ThreadID
 channel isReady: Node.ThreadID.ThreadID.Bool
-channel initialise: Node.ThreadID
+channel initialiseNode, releaseNode: Node.ThreadID
 channel isEmpty: MonitorID.ConditionID.ThreadID
 channel await, signalAll: MonitorID.ConditionID.ThreadID
 
@@ -21,36 +21,52 @@ Signal1(mon, cnd, t) =
      isEmpty.mon.cnd.t -> SKIP
   [] dequeue.mon.cnd.t?n.t2 -> isReady.n.t2.t?b ->
       if b then Signal1(mon, cnd, t)
-      else setReady.n.t2.t -> Unpark(mon, t, t2); SKIP
+      else setReady.n.t2.t -> Unpark(t, t2); SKIP
 
 SignalAll1(mon, cnd, t) =
      isEmpty.mon.cnd.t -> SKIP
   [] dequeue.mon.cnd.t?n.t2  -> setReady.n.t2.t -> 
-          Unpark(mon, t, t2); SignalAll1(mon, cnd, t)
+          Unpark(t, t2); SignalAll1(mon, cnd, t)
 
 Await1(mon, cnd, t) = 
-  initialise.(N.t).t -> enqueue.mon.cnd.t.(N.t).t -> release.mon.t -> Await2(mon, cnd, t)
+  initialiseNode?n!t -> enqueue.mon.cnd.t.n.t -> release.mon.t -> Await2(mon, cnd, t, n)
 
-Await2(mon, cnd, t) = 
-  isReady.(N.t).t.t?b -> if b then acquire.mon.t -> SKIP
-                           else Park(mon, t); Await2(mon, cnd, t)
+Await2(mon, cnd, t, n) = 
+  isReady.n.t.t?b -> if b then releaseNode.n.t -> acquire.mon.t -> SKIP
+                           else Park(t); Await2(mon, cnd, t, n)
 
 --NaturalQueue                           
 
+NodeAllocator(ns) = 
+     (not(empty(ns))) & 
+       (initialiseNode$n:ns?t -> NodeAllocator(diff(ns, {n})))
+  [] releaseNode?n:ns?t -> DIV
+  [] releaseNode?n:diff(Node, ns)?t -> NodeAllocator(union(ns, {n}))
 
+min(ns) =  min'(n, seq(ns))
+min'(x, <>) = N.x
+min'(x, <N.n>^ns) = if x < n then min'(x, ns) else min'(n, ns)
 
-ThreadInfo(n, t) = initialise.n!t -> ThreadInfoF(n, t)
+NodeAllocator2(ns) = 
+     (not(empty(ns))) & (initialiseNode.(min(ns))?t -> 
+       NodeAllocator2(diff(ns, {min(ns)})))
+  [] releaseNode?n:ns?t -> DIV
+  [] releaseNode?n:diff(Node, ns)?t -> NodeAllocator2(union(ns, {n}))
+
+ThreadInfo :: (Node) -> Proc
+ThreadInfo(n) = initialiseNode.n?t -> ThreadInfoF(n, t)
 ThreadInfoF(n, t) =  isReady.n!t?t2.false -> ThreadInfoF(n, t)
-               [] setReady.n!t?t2 -> ThreadInfoT(n, t)
-               --[] id.n.t -> ThreadInfoF(n, t) 
+               [] setReady.n!t?t2:diff(ThreadID, {t}) -> ThreadInfoT(n, t)
+               [] initialiseNode.n!t -> DIV
 ThreadInfoT(n, t) = isReady.n!t?t2.true -> ThreadInfoT(n, t)
                [] setReady.n!t?t2 -> DIV
-               [] initialise.n!t -> ThreadInfoF(n, t)
+               [] initialiseNode.n!t -> DIV
+               [] releaseNode.n.t -> ThreadInfo(n)
 
-Queue'(m, c, qs) = 
-     (null(qs)) & (isEmpty.m.c?t -> Queue'(m, c, qs))
-  [] (not(null(qs))) & ( dequeue.m.c?t!head(qs) -> Queue'(m, c, tail(qs)))
-  [] enqueue.m.c?t?tInfo:diff({n.t | n <- Node, t <- ThreadID}, set(qs)) -> Queue'(m, c, qs ^ <tInfo>)
+-- Queue'(m, c, qs) = 
+--      (null(qs)) & (isEmpty.m.c?t -> Queue'(m, c, qs))
+--   [] (not(null(qs))) & ( dequeue.m.c?t!head(qs) -> Queue'(m, c, tail(qs)))
+--   [] enqueue.m.c?t?tInfo:diff({n.t | n <- Node, t <- ThreadID}, set(qs)) -> Queue'(m, c, qs ^ <tInfo>)
 
 
 init = mapFromList(<(c, <>) | c <- seq(ConditionID)>)
@@ -71,24 +87,39 @@ Queue(m, qMap) =
         -> Queue(m, mapUpdate(qMap, c2, tail(mapLookup(qMap, c2)))))
   [] (null(mapLookup(qMap, c2))) & (isEmpty.m.c2?t -> Queue(m, qMap))
   []  enqueue.m?c?t?tInfo:values(qMap) -> DIV
-  []  enqueue.m?c.t?tInfo:diff({N.t.t | (N.t) <- Node}, values(qMap)) 
+  []  enqueue.m?c.t?tInfo:diff({n.t | n <- Node, t <- ThreadID}, values(qMap)) 
          -> Queue(m, mapUpdate(qMap, c, mapLookup(qMap, c) ^ <tInfo>))
+
+
+nodes(ns) = {n | (n.t) <- set(ns)}
+threads(ns) = {t | (n.t) <- set(ns)}
+
+Queue'(m, c, qs) = 
+     (not(null(qs))) & dequeue.m.c?t!head(qs) -> Queue'(m, c, tail(qs))
+  [] (null(qs)) & isEmpty.m.c?t -> Queue'(m, c, qs)
+  [] enqueue.m.c?t?n:diff(Node, nodes(qs))?t':diff(ThreadID, threads(qs)) -> Queue'(m, c, qs^<(n.t)>)
+  --[] enqueue.m.c?t?(n.t'):diff({n.t | n <- Node, t <- ThreadID}, set(qs)) -> Queue'(m, c, qs^<(n.t)>)
+
 
 
 
     --removeFromMap(map, c, t) = mapUpdate(map, c, diff(mapLookup(map, c), {t}))
 
-Unlocked(m) = acquire.m?t -> release.m.t -> Unlocked(m)
+Lock'(m) = acquire.m?t -> release.m.t -> Lock'(m)
 
 InitialiseMon0(m, setC) = 
-  (Unlocked(m) ||| Queue(m, init) |||
-  --(||| c <- setC @ Queue'(m, c, <>)) |||
-  (||| t <- ThreadID @ ThreadInfo((N.t), t)) ||| InitLockSupp(m))
+  (Lock'(m) ||| 
+  --Queue(m, init) |||
+  --(||| c <- setC @ Queue(m, c))
+  (||| c <- setC @ Queue'(m, c, <>)) |||
+  (NodeAllocator2(Node) [|{|initialiseNode, releaseNode|}|] (||| n <- Node @ ThreadInfo(n)))
+  ||| InitLockSupp)
 
 InitialiseMonDet0(m, setC) = 
-  (Unlocked(m) ||| Queue(m, init) |||
-  --(||| c <- setC @ Queue'(m, c, <>)) |||
-  (||| t <- ThreadID @ ThreadInfo((N.t), t)) ||| InitLockSuppDet(m))
+  (Lock'(m) ||| 
+  --Queue(m, init) |||
+  (||| c <- setC @ Queue'(m, c, <>)) |||
+  (NodeAllocator2(Node) [|{|initialiseNode, releaseNode|}|] (||| n <- Node @ ThreadInfo(n))) ||| InitLockSuppDet)
 
 
 
@@ -102,8 +133,8 @@ SyncSet2(m, setC) =
 
 --The set of events that are hidden when a thread uses the monitor
 HideSet(m, setC) = 
-  {|park.m, unpark.m, wakeUp.m, enqueue.m.c, dequeue.m.c, initialise,
-    setReady, isReady, isEmpty.m.c | c <- setC|}
+  {|park, unpark, wakeUp, enqueue.m.c, dequeue.m.c, initialiseNode,
+    setReady, isReady, isEmpty.m.c, releaseNode | c <- setC|}
 
 
 exports
@@ -112,6 +143,7 @@ channel acquire, release: MonitorID.ThreadID
 channel callAcquire, callRelease: MonitorID.ThreadID
 channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
 channel callSignal: MonitorID.ConditionID.ThreadID
+channel callSignalSpec: MonitorID.ConditionID.ThreadID
 
 -- The set of externally visible events
 External(m, setC) = 

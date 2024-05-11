@@ -1,0 +1,176 @@
+module SCLMonitor
+
+
+-- Including lock-support, but not as a module as multiple levels of module 
+-- instances are not allowed
+include "lock-support.csp"
+
+-- Convention is monitor, condition, calling thread, target thread, 
+-- has target been marked as ready
+datatype Node = N.ThreadID
+
+channel enqueue: MonitorID.ConditionID.Node 
+channel dequeue: MonitorID.ConditionID.ThreadID.Node
+channel setReady: Node.ThreadID
+channel isReady: Node.ThreadID.Bool
+channel initialiseNode, releaseNode: Node
+channel isEmpty: MonitorID.ConditionID.ThreadID
+channel await, signalAll: MonitorID.ConditionID.ThreadID
+
+
+Signal1(mon, cnd, t) = 
+     isEmpty.mon.cnd.t -> SKIP
+  [] dequeue.mon.cnd.t?(N.t2) -> isReady.N.t2.t?b ->
+      if b then Signal1(mon, cnd, t)
+      else setReady.N.t2.t -> Unpark(t, t2); SKIP
+
+SignalAll1(mon, cnd, t) =
+     isEmpty.mon.cnd.t -> SKIP
+  [] dequeue.mon.cnd.t?(N.t2) -> setReady.(N.t2).t -> 
+          Unpark(t, t2); SignalAll1(mon, cnd, t)
+
+Await1(mon, cnd, t) = 
+  initialiseNode.N.t -> enqueue.mon.cnd.N.t -> release.mon.t -> Await2(mon, cnd, t, N.t)
+
+Await2(mon, cnd, t, n) = 
+  isReady.n.t?b -> if b then releaseNode.n -> acquire.mon.t -> SKIP
+                           else Park(t); Await2(mon, cnd, t, n)
+
+--NaturalQueue                           
+
+-- NodeAllocator(ns) = 
+--      (not(empty(ns))) & 
+--        (initialiseNode$n:ns?t -> NodeAllocator(diff(ns, {n})))
+--   [] releaseNode?n:ns?t -> DIV
+--   [] releaseNode?n:diff(Node, ns)?t -> NodeAllocator(union(ns, {n}))
+
+-- min(ns) =  min'(n, seq(ns))
+-- min'(x, <>) = N.x
+-- min'(x, <N.n>^ns) = if x < n then min'(x, ns) else min'(n, ns)
+
+-- NodeAllocator2(ns) = 
+--      (not(empty(ns))) & (initialiseNode.(min(ns))?t -> 
+--        NodeAllocator2(diff(ns, {min(ns)})))
+--   [] releaseNode?n:ns?t -> DIV
+--   [] releaseNode?n:diff(Node, ns)?t -> NodeAllocator2(union(ns, {n}))
+
+ThreadInfo :: (Node) -> Proc
+ThreadInfo(N.t) = initialiseNode.N.t -> ThreadInfoF(N.t)
+ThreadInfoF(N.t) =  isReady.N.t?t2.false -> ThreadInfoF(N.t)
+               [] setReady.N.t?t2:diff(ThreadID, {t}) -> ThreadInfoT(N.t)
+               [] initialiseNode.N.t -> DIV
+               --[] nodeThread.n.t' -> ThreadInfoF(n)
+ThreadInfoT(N.t) = isReady.N.t?t2.true -> ThreadInfoT(N.t)
+               [] setReady.N.t?t2 -> DIV
+               [] initialiseNode.N.t -> DIV
+               --[] nodeThread.n.t?t' -> ThreadInfoT(n, t)
+               [] releaseNode.N.t -> ThreadInfo(N.t)
+
+-- Queue'(m, c, qs) = 
+--      (null(qs)) & (isEmpty.m.c?t -> Queue'(m, c, qs))
+--   [] (not(null(qs))) & ( dequeue.m.c?t!head(qs) -> Queue'(m, c, tail(qs)))
+--   [] enqueue.m.c?t?tInfo:diff({n.t | n <- Node, t <- ThreadID}, set(qs)) -> Queue'(m, c, qs ^ <tInfo>)
+
+Queue(m, c, qs) = 
+     (not(null(qs))) & dequeue.m.c?t!head(qs) -> Queue(m, c, tail(qs))
+  [] (null(qs)) & isEmpty.m.c?t -> Queue(m, c, qs)
+  [] enqueue.m.c?n:diff(Node, set(qs)) -> Queue(m, c, qs^<n>)
+
+
+init = mapFromList(<(c, <>) | c <- seq(ConditionID)>)
+
+values(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
+
+--assert init == (| C.0 => <>, C.1 => <>|)
+--assert (seq(ConditionID) == <C.0,C.1>)
+
+
+
+-- Queue'(m, c, qs, QS) = 
+--      (not(null(qs))) & dequeue.m.c?t!head(qs) -> Queue'(m, c, tail(qs), diff(QS, {head(qs)}))
+--   [] (null(qs)) & isEmpty.m.c?t -> Queue'(m, c, qs, QS)
+--   [] enqueue.m.c?n:diff(Node, QS) -> Queue'(m, c, qs^<n>, union(QS, {n}))
+--   [] enqueue.m?c':diff(ConditionID, {c})?t?n:diff(Node, QS) -> Queue'(m, c, qs, union(QS, {n}))
+--   [] dequeue.m?c':diff(ConditionID, {c})?t?n -> Queue'(m, c, qs, diff(QS, {n}))
+--   --[] enqueue.m.c?t?(n.t'):diff({n.t | n <- Node, t <- ThreadID}, set(qs)) -> Queue'(m, c, qs^<(n.t)>)
+
+
+
+
+    --removeFromMap(map, c, t) = mapUpdate(map, c, diff(mapLookup(map, c), {t}))
+
+Lock'(m) = acquire.m?t -> release.m.t -> Lock'(m)
+
+  --(||| c <- setC @ Queue'(m, c, <>, {})) |||
+   --Queue(m, init) |||
+InitialiseMon0(m, setC) = 
+  (Lock'(m) ||| 
+   (||| c <- setC @ Queue(m, c, <>)) |||
+   --(NodeAllocator(Node) [|{|initialiseNode, releaseNode|}|] 
+        (||| n <- Node @ ThreadInfo(n)) ||| 
+   InitLockSupport)
+
+InitialiseMonDet0(m, setC) = 
+  (Lock'(m) ||| 
+  --Queue(m, init) |||
+  (||| c <- setC @ Queue(m, c, <>)) |||
+  --(NodeAllocator(Node) [|{|initialiseNode, releaseNode|}|] 
+  (||| n <- Node @ ThreadInfo(n)) ||| InitLockSupportDet)
+
+
+
+-- The set that synchronises with a set of threads using the monitor
+SyncSet(m, setC) =
+  union(External(m, setC), HideSet(m, setC))
+
+SyncSet2(m, setC) =
+  diff(Union({{|acquire.m | c <- setC|}, {|release.m | c <- setC|}, HideSet(m, setC)}),
+       {})--{|wakeUp|})
+
+--The set of events that are hidden when a thread uses the monitor
+HideSet(m, setC) = 
+  {|park, unpark, wakeUp, enqueue.m.c, dequeue.m.c, initialiseNode, --nodeThread,
+    setReady, isReady, isEmpty.m.c, releaseNode | c <- setC|}
+
+
+exports
+
+channel acquire, release: MonitorID.ThreadID
+channel callAcquire, callRelease: MonitorID.ThreadID
+channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
+channel callSignal: MonitorID.ConditionID.ThreadID
+
+-- The set of externally visible events
+External(m, setC) = 
+  {|callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m, 
+    acquire.m, callRelease.m, release.m | c <- setC|}
+
+
+-- Runs the monitor with internal spurious wakeups
+runWith(P, mon, setC) = 
+  ((P [|SyncSet2(mon, setC)|] 
+        InitialiseMon0(mon, setC)) \ HideSet(mon, setC))
+
+-- Runs the monitor without internal spurious wakeups
+runWithDet(P, mon, setC) = 
+  ((P [|SyncSet2(mon, setC)|] 
+        InitialiseMonDet0(mon, setC)) \  HideSet(mon, setC))
+  
+
+-- Operations on the monitor
+Await(mon, cnd, t) = callAwait.mon.cnd.t -> 
+                        Await1(mon, cnd, t)
+
+Signal(mon, cnd, t) = callSignal.mon.cnd.t -> 
+                        Signal1(mon, cnd, t)
+
+SignalAll(mon, cnd, t) = callSignalAll.mon.cnd.t -> 
+                            SignalAll1(mon, cnd, t)
+
+Lock(mon, t) = callAcquire.mon.t -> 
+                    acquire.mon.t -> SKIP
+
+Unlock(mon, t) = callRelease.mon.t -> 
+                    release.mon.t -> SKIP
+
+endmodule

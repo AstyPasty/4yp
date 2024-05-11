@@ -1,44 +1,42 @@
 -- LockSupport
 
-channel park: MonitorID.ThreadID
-channel wakeUp: MonitorID.ThreadID.Bool
-channel unpark: MonitorID.ThreadID.ThreadID
+channel park: ThreadID
+channel wakeUp: ThreadID.Bool
+channel unpark: ThreadID.ThreadID
 
-LockSupport0 :: (MonitorID) -> Proc
-LockSupport0(m) = LockSupport(m, {}, {})
-LockSupport1(m, waiting, permits) =
-  park.m?t-> (--:diff(ThreadID, waiting) -> (
+
+LockSupport1(waiting, permits) =
+  park?t-> (
     if member(t, permits)
-      then wakeUp.m.t.true -> LockSupport(m, waiting, diff(permits, {t}))
-    else LockSupport(m, union(waiting, {t}), permits) )
+      then wakeUp.t.true -> LockSupport(waiting, diff(permits, {t}))
+    else LockSupport(union(waiting, {t}), permits) )
   []
-  unpark.m?t?t2-> ( --):diff(ThreadID, waiting)?t2:waiting -> (
+  unpark?t?t2-> ( 
     if member(t2, waiting)
-      then wakeUp.m.t2.true -> LockSupport(m, diff(waiting, {t2}), permits)
-    else LockSupport(m, waiting, union(permits, {t2})))
-LockSupport(m, waiting, permits) =
-  if waiting == {} then LockSupport1(m, waiting, permits)
-  else (LockSupport1(m, waiting, permits)
-        |~| wakeUp.m$t:waiting!false -> LockSupport(m, diff(waiting, {t}), permits) )
+      then wakeUp.t2.true -> LockSupport(diff(waiting, {t2}), permits)
+    else LockSupport(waiting, union(permits, {t2})))
+LockSupport(waiting, permits) =
+  if waiting == {} then LockSupport1(waiting, permits)
+  else (LockSupport1(waiting, permits)
+        |~| wakeUp$t:waiting!false -> LockSupport(diff(waiting, {t}), permits) )
 
-InitLockSupp(m) = LockSupport0(m)
 
-LockSupportDet0 :: (MonitorID) -> Proc
-LockSupportDet0(m) = LockSupportDet(m, {}, {})
-LockSupportDet1(m, waiting, permits) =
-  park.m?t-> (--:diff(ThreadID, waiting) -> (
+LockSupportDet1(waiting, permits) =
+  park?t-> (
     if member(t, permits)
-      then wakeUp.m.t.true -> LockSupportDet(m, waiting, diff(permits, {t}))
-    else LockSupportDet(m, union(waiting, {t}), permits) )
+      then wakeUp.t.true -> LockSupportDet(waiting, diff(permits, {t}))
+    else LockSupportDet(union(waiting, {t}), permits) )
   []
-  unpark.m?t?t2-> ( --):diff(ThreadID, waiting)?t2:waiting -> (
+  unpark?t?t2-> ( 
     if member(t2, waiting)
-      then wakeUp.m.t2.true -> LockSupportDet(m, diff(waiting, {t2}), permits)
-    else LockSupportDet(m, waiting, union(permits, {t2})))
-LockSupportDet(m, waiting, permits) = LockSupportDet1(m, waiting, permits)
+      then wakeUp.t2.true -> LockSupportDet(diff(waiting, {t2}), permits)
+    else LockSupportDet(waiting, union(permits, {t2})))
+LockSupportDet(waiting, permits) = LockSupportDet1(waiting, permits)
 
-InitLockSuppDet(m) = LockSupportDet0(m)
+InitLockSupport = LockSupport({}, {})
 
-Park(m, t) = park.m.t -> wakeUp.m.t?_ ->  SKIP
+InitLockSupportDet = LockSupportDet({}, {})
 
-Unpark(m, t, t') = unpark.m.t.t' -> SKIP
+Park(t) = park.t -> wakeUp.t?_ ->  SKIP
+
+Unpark(t, t') = unpark.t.t' -> SKIP

@@ -13,6 +13,7 @@
 \usepackage{lmodern}
 \usepackage{mathtools, amssymb, amsthm}
 \usepackage{float}
+\usepackage{booktabs}
 
 \usepackage{tikz}
 \usetikzlibrary{arrows}
@@ -87,7 +88,7 @@
  breaklines=true,
  breakatwhitespace=true,
  tabsize=3,
- moredelim=**[is][\color{red}]{_}{_}
+ moredelim=**[is][\color{red}]{-}{-}
 }
 
 
@@ -107,15 +108,20 @@
 
 \begin{document}
   \maketitle
-%  \tableofcontents
+  \tableofcontents
 %  \listoffigures
 %  \listoftables
 %  \pagebreak
 
-  \input{intro}
- %\input{locks}
- %\input{monitor.tex}
- %\input{barrier.tex}
+ \input{intro}
+ \input{lit.tex}
+ \input{locks}
+ %\input{starve.tex}
+ \input{monitor.tex}
+ \input{SCLMonitor.tex}
+ \input{barrier.tex}
+ 
+ \input{eval.tex}
 
   %\begin{enumerate}
   %  \item \textbf{Action on Objectives:} The attacker now begins to achieve their initial objectives making use of the system access they have achieved. These objectives can include anything from data exfiltration to ransomware attacks to damage to physical systems.

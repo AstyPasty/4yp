@@ -1,0 +1,29 @@
+\section{Related Work}
+
+
+
+Current literature highlights a few main approaches to formal verification of software. Such verification can either be done via verification tests written during development, through automated translation of code after development or alternatively through modelling by hand.
+
+Writing verification proofs throughout development allows developers to ensure that their code meets their specification during development.
+An example of this approach is AWS, who use formal verification methods in code development in order to ensure that their code always meets its specifications \cite{Amazon1,Amazon2}. This process involve writing a specification for each function in the form of a number of pre- and post-conditions, with these properties being validated. Though similar in style to standard unit-tests, these are actual proofs that are continually checked during development, with routine checking of these proofs indicating the correctness (or otherwise) of the code.
+This approach requires more effort during the development and writing process, the ability to detect system design issues during implementation is significantly more helpful than via system testing at the end of development (or indeed in production). To aid with this, some languages such as Dafny\cite{Dafny} have been developed with built in model checkers as an extension of this approach.
+
+Automated code translation is similar, but tends to focus on more generic properties such as detecting deadlocks. NASA developed the Java PathFinder (JPF) in 1999 as one of the first examples of automated verification of code \cite{NASA1}. This was able to detect and alert on deadlocks, unhandled exceptions and assertions, however it was not able to check for correctness against some specification processes/models \cite{NASA2}. This limits its utility significantly; code not deadlocking does not imply correctness. More modern tools such as Stainless are able to verify some further system properties when given some additional information by the developer\cite{C4DT}.
+
+
+By contrast, verification of code by hand using some modelling language only requires verifying a final design or implementation. This can be beneficial as the greater insight gained from 
+
+We instead choose to focus on the formal verification of code by hand. This allows us to make use of our insights to optimise the models developed, resulting in a smaller model to nverify and hence allowing us to verify the system for larger numbers of threads or other parameter limitations.
+
+We choose to use CSP for this task. CSP is very suitable for modelling concurrent systems with tightly restricted communications between threads \cite{Lawrence2005} and allows for natural modeling of system behaviour. Through this, we can effectively use CSP and FDR to model and then check a range of primitives and desired properties. This let to significant verification results prviously, most prominently being Lowe's detection of a man-in-the-middle attack on the Needham-Schroeder protocol\cite{LoweNeedham}. It has also been used previously to model software running on the International Space Station, proving that such systems were free of deadlocks\cite{DeadlockAnalysis}. 
+
+Indeed, CSP has also been successfully used to find bugs in concurrency primitives. Lowe used CSP to model an implementation of a concurrent channel, with FDR returning that the implementation was not deadlock free \cite{LoweDeadlock}. This bug was a very niche edge case that required a trace of 37 separate events which had yet to be spotted by hand. The produced trace allowed for a straightforward fix to the code to made to remove the deadlock; this makes it well suited to our needs here as we can both accurately model concurrent datatypes and then easily interpret any resulting error traces.
+
+There are three main styles of concurrent programming as highlighted in \cite{CADS}: lock-based, message passing and dataype-based concurrent programming. There exists literature on formal verification of the latter two; Lowe has previously proved the correctness of a lock-free queue\cite{LFQueue} and also an implementation of a generalised alt operator \cite{LoweAlt}. There is also more general work on the verification of lock-free algorithms, such as Schellhorn and B{\"a}umler \cite{Schellhorn}. Their work uses an extended form of linear temporal logic (LTL) and the rely-guarantee paradigm (introduced by \cite{Jones}) to prove linearizability and lock-freeness properties. 
+
+By contrast, there is an lack of research into lock-based concurrency primitives, we therefore focus on this area.
+
+\emph{https://link.springer.com/chapter/10.1007/978-3-642-17511-4\_20}
+
+
+

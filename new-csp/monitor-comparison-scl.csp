@@ -1,13 +1,13 @@
-n = 5
+n = 2
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0}--..n-1}
 datatype MonitorID = SigM.SignalID
-datatype ConditionID = C.{0..2}
+datatype ConditionID = C.{0}
 
 
 -- This will include the version of the SCL monitor based on a 
 -- ParkSupport implementation
-include "scl-monitor-simplified.csp"
+include "scl-monitor_simplified-queue-v2.csp"
 
 instance SCL = SCLMonitor
 
@@ -19,10 +19,14 @@ instance SCL = SCLMonitor
 -- TODO: parametise over ConditionID correctly
 ThreadSCL(t) = SCL::Lock(SigM.S.0, t); ThreadSCL1(t)
 ThreadSCL1(t) =   
-  [] c : ConditionID @ (SCL::Await(SigM.S.0, c, t); ThreadSCL1(t))      
-  [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
-  [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
-  [] (SCL::SignalAll(SigM.S.0, c, t); ThreadSCL1(t))
+  [] c : ConditionID @ 
+     (
+         (SCL::Await(SigM.S.0, c, t); ThreadSCL1(t))      
+      [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
+      [] (SCL::Signal(SigM.S.0, c, t); ThreadSCL1(t))
+      [] (SCL::SignalAll(SigM.S.0, c, t); ThreadSCL1(t))
+     )
+  
   [] (SCL::Unlock(SigM.S.0, t); ThreadSCL(t))
 
  
@@ -40,62 +44,151 @@ SCLSystemDet = SCL::runWithDet(ThreadsSCL, SigM.S.0, ConditionID)
 
 -- The specification process for a monitor with multiple conditions
 
-init = mapFromList(<(c, <>) | c <- seq(ConditionID)>)
-values(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
+initSeq = mapFromList(<(c, <>) | c <- seq(ConditionID)>)
+-- values(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
 
-SpecUnlocked'(m, waiting, poss) =
-     SCL::callAcquire.m?t':diff(ThreadID, union(values(waiting), poss)) ->
-       SpecUnlocked'(m, waiting, union(poss,{t'}))
-  [] SCL::acquire.m?t:poss -> SpecLocked'(m, t, waiting, diff(poss,{t}))
+-- SpecUnlocked(m, waiting, poss) =
+--      SCL::callAcquire.m?t':diff(ThreadID, union(values(waiting), poss)) ->
+--        SpecUnlocked(m, waiting, union(poss,{t'}))
+--   [] SCL::acquire.m?t:poss -> SpecLocked(m, t, waiting, diff(poss,{t}))
      
 
-SpecLocked'(m, t, waiting, poss) =
-     SCL::callAwait.m?c:ConditionID!t -> 
-       SpecLockedWaiting'(m, c, t, waiting, poss)
-  [] SCL::callSignal.m?c:ConditionID!t -> 
-       (if mapLookup(waiting, c) == <> then 
-           SpecLocked'(m, t, waiting, poss) 
-        else SpecLocked'(m, t, 
-                         mapUpdate(waiting, c, tail(mapLookup(waiting, c))), 
-                         union(poss, {head(mapLookup(waiting, c))})))
+-- SpecLocked(m, t, waiting, poss) =
+--      SCL::callAwait.m?c:ConditionID!t -> 
+--        SpecLockedWaiting(m, c, t, waiting, poss)
+--   [] SCL::callSignal.m?c:ConditionID!t -> 
+--        (if mapLookup(waiting, c) == <> then 
+--            SpecLocked(m, t, waiting, poss) 
+--         else SpecLocked(m, t, 
+--                          mapUpdate(waiting, c, tail(mapLookup(waiting, c))), 
+--                          union(poss, {head(mapLookup(waiting, c))})))
+--   [] SCL::callSignalAll.m?c:ConditionID!t -> 
+--        (if mapLookup(waiting, c) == <> then 
+--            SpecLocked(m, t, waiting, poss) 
+--         else SpecLocked(m, t, mapUpdate(waiting, c, <>), 
+--                          union(poss, set(mapLookup(waiting, c)))))
+--   [] SCL::callRelease.m.t -> SpecLockedReleasing(m, t, waiting, poss)
+--   [] SCL::callAcquire.m?t':diff(ThreadID, 
+--                                 Union({values(waiting), poss, {t}})) -> 
+--        SpecLocked(m, t, waiting, union(poss, {t'}))
+
+-- -- t doing a wait; needs to release the lock
+-- SpecLockedWaiting(m, c, t, waiting, poss) =
+--      SCL::release.m.t -> 
+--        SpecUnlocked(m, mapUpdate(waiting, c, (mapLookup(waiting, c)^<t>)), poss)
+--   [] SCL::callAcquire.m?t':diff(ThreadID, 
+--                                 Union({values(waiting), poss, {t}})) ->
+--        SpecLockedWaiting(m, c, t, waiting, union(poss, {t'}))
+
+-- -- t releasing the lock
+-- SpecLockedReleasing(m, t, waiting, poss) =
+--      SCL::release.m.t -> SpecUnlocked(m, waiting, poss)
+--   [] SCL::callAcquire.m?t':diff(ThreadID, 
+--                                 Union({values(waiting), poss, {t}})) ->
+--        SpecLockedReleasing(m, t, waiting, union(poss, {t'}))
+
+-- SpecSCL = SpecUnlocked(SigM.S.0, initSeq, {})  
+
+initSet = mapFromList(<(c, {}) | c <- seq(ConditionID)>)
+values(map) = Union({mapLookup(map, cnd) | cnd <- ConditionID})
+channel callSignalSpec: MonitorID.ConditionID.ThreadID.ThreadID
+
+SpecUnlocked(m, waiting, poss) =
+     SCL::callAcquire.m?t':diff(ThreadID, union(values(waiting), poss)) ->
+       SpecUnlocked(m, waiting, union(poss,{t'}))
+  [] SCL::acquire.m?t:poss -> SpecLocked(m, t, waiting, diff(poss,{t}))
+     
+
+SpecLocked(m, t, waiting, poss) =
+  [] c': ConditionID @  
+      (   
+          (mapLookup(waiting, c') == {}) & callSignalSpec.m.c'.t.t ->
+             SpecLocked(m, t, waiting, poss)
+       [] (mapLookup(waiting, c') != {}) & 
+            callSignalSpec.m.c'.t?t':mapLookup(waiting, c') -> 
+              SpecLocked(m, t, 
+                        mapUpdate(waiting, c', diff(mapLookup(waiting, c'), {t'})), 
+                        union(poss, {t'}))
+      )
   [] SCL::callSignalAll.m?c:ConditionID!t -> 
-       (if mapLookup(waiting, c) == <> then 
-           SpecLocked'(m, t, waiting, poss) 
-        else SpecLocked'(m, t, mapUpdate(waiting, c, <>), 
-                         union(poss, set(mapLookup(waiting, c)))))
-  [] SCL::callRelease.m.t -> SpecLockedReleasing'(m, t, waiting, poss)
+       (if mapLookup(waiting, c) == {} then 
+            SpecLocked(m, t, waiting, poss) 
+        else SpecLocked(m, t, mapUpdate(waiting, c, {}), 
+                          union(poss, mapLookup(waiting, c))))
+  [] SCL::callRelease.m.t -> 
+        SpecLockedReleasing(m, t, waiting, poss)
   [] SCL::callAcquire.m?t':diff(ThreadID, 
                                 Union({values(waiting), poss, {t}})) -> 
-       SpecLocked'(m, t, waiting, union(poss, {t'}))
+        SpecLocked(m, t, waiting, union(poss, {t'}))
+  [] SCL::callAwait.m?c:ConditionID!t -> 
+        SpecLockedWaiting(m, c, t, waiting, poss)
+  
 
 -- t doing a wait; needs to release the lock
-SpecLockedWaiting'(m, c, t, waiting, poss) =
+SpecLockedWaiting(m, c, t, waiting, poss) =
      SCL::release.m.t -> 
-       SpecUnlocked'(m, mapUpdate(waiting, c, (mapLookup(waiting, c)^<t>)), poss)
+       SpecUnlocked(m, mapUpdate(waiting, c, union(mapLookup(waiting, c), {t})), 
+                    poss)
   [] SCL::callAcquire.m?t':diff(ThreadID, 
                                 Union({values(waiting), poss, {t}})) ->
-       SpecLockedWaiting'(m, c, t, waiting, union(poss, {t'}))
+       SpecLockedWaiting(m, c, t, waiting, union(poss, {t'}))
 
 -- t releasing the lock
-SpecLockedReleasing'(m, t, waiting, poss) =
-     SCL::release.m.t -> SpecUnlocked'(m, waiting, poss)
+SpecLockedReleasing(m, t, waiting, poss) =
+     SCL::release.m.t -> SpecUnlocked(m, waiting, poss)
   [] SCL::callAcquire.m?t':diff(ThreadID, 
                                 Union({values(waiting), poss, {t}})) ->
-       SpecLockedReleasing'(m, t, waiting, union(poss, {t'}))
+       SpecLockedReleasing(m, t, waiting, union(poss, {t'}))
 
-SpecSCL' = SpecUnlocked'(SigM.S.0, init, {})  
+SpecSCL = (let m = SigM.S.0 within 
+            (SpecUnlocked(m, initSet, {}) 
+              [[callSignalSpec.m.c.t.t' <- SCL::callSignal.m.c.t 
+                  | c <- ConditionID, t <- ThreadID, t' <- ThreadID]]))
+
+
+valuesSeq(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
+channel error: MonitorID
+OrderCheck(m, waiting) = 
+     SCL::acquire.m?t:ThreadID -> 
+      (if member(t, valuesSeq(waiting)) then error.m -> STOP--DIV
+       else OrderCheck(m, waiting))
+  [] SCL::callAwait.m?c?t -> 
+      (if member(t, valuesSeq(waiting)) then error.m -> STOP
+       else OrderCheck(m, mapUpdate(waiting, c, mapLookup(waiting, c)^<t>)))
+  [] SCL::callSignalAll.m?c?_ -> 
+       OrderCheck(m, mapUpdate(waiting, c, <>))
+  [] SCL::callSignal.m?c?_ -> 
+      (if null(mapLookup(waiting, c)) then OrderCheck(m, waiting)
+       else OrderCheck(m, mapUpdate(waiting, c, 
+                                    tail(mapLookup(waiting, c)))))
+          
+
+
+
+
+
 
 
 -- Only assertion that fails is (SpecSCL') [FD= (SCLSystem)
 -- this is expected as our specification does not diverge; could 
 -- non-deterministically add divergences whenever a thread is waiting
-assert (SpecSCL') [T= (SCLSystem) 
-assert (SpecSCL') [F= (SCLSystem) 
-assert (SpecSCL') [FD= (SCLSystem) 
 
-assert (SpecSCL') [T= (SCLSystemDet) 
-assert (SpecSCL') [F= (SCLSystemDet) 
-assert (SpecSCL') [FD= (SCLSystemDet) 
+assert not SCLSystem :[divergence free]
+assert SCLSystemDet :[divergence free]
+
+
+assert (SpecSCL) [T= (SCLSystem)
+assert SpecSCL [F= (SCLSystem) --[[SCL::callSignalSpec.m.c.t.t <- SCL::callSignal.m.c.t | m <- MonitorID, c <- ConditionID, t <- ThreadID, t' <- ThreadID]])
+
+assert SpecSCL [F= (OrderCheck(SigM.S.0, initSeq) 
+                     [|{|SCL::callAwait.SigM.S.0,
+                         SCL::acquire.SigM.S.0,
+                         SCL::callSignal.SigM.S.0,
+                         SCL::callSignalAll.SigM.S.0|}|] SCLSystem)
+
+assert SpecSCL [T= SCLSystemDet 
+assert SpecSCL [F= SCLSystemDet 
+assert SpecSCL [FD= SCLSystemDet 
 
 
 -- Thread''(t) = SCL::callAcquire.monC.t -> SCL::acquire.monC.t -> Thread1''(t)

@@ -25,7 +25,7 @@ LockChans = {callLock, lockAcquired, lockNotObtained, lockReleased}
 channel getAndSet: Index.ThreadID.Bool.Bool
 channel get: Index.ThreadID.Bool
 channel set: Index.ThreadID.Bool
-Variables = Array(Index, false, get, set, getAndSet)
+Variables = AtomicArray(Index, false, get, set, getAndSet)
 InternalVarChannels = {|get, set, getAndSet|}
 InternalChannels = {|get, set, getAndSet|}
 
@@ -109,3 +109,30 @@ FCFS({t1}, {t2}, TS) = lockAcquired.L.0.t2 -> FCFS({t1}, {}, TS)
                                                  -> FCFS({}, {t1}, TS) 
 
 assert FCFS({}, {}, ThreadID) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}
+
+--B = buchi(StarvationFree(T.0), accept)
+--StarvationFree(t) = accept -> StarvationFree(t)
+
+--StarvationFreed(t) = 
+
+channel wait
+channel waitT: ThreadID
+ActualSystemRB = (ActualSystemR
+                  [[get.i.t.False <- wait,
+                    get.i.t.True <- wait,
+                    set.i.t.False <- wait,
+                    set.i.t.True <- wait | t <- ThreadID, i <- Index]])
+
+ActualSystemRBT = (ActualSystemR
+                  [[get.i.t.False <- waitT.t,
+                    get.i.t.True <- waitT.t,
+                    set.i.t.False <- waitT.t,
+                    set.i.t.True <- waitT.t | t <- ThreadID, i <- Index]])
+
+
+assert ActualSystemRB :[divergence free]
+assert ActualSystemRB \ {wait}:[divergence free]
+
+assert ActualSystemRBT :[divergence free]
+assert ActualSystemRBT \ {waitT.T.1}:[divergence free]
+assert ActualSystemRBT \ {waitT.T.0}:[divergence free]

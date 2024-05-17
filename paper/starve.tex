@@ -95,10 +95,278 @@ I haven't been able to think of/find any lock implementations that are starvatio
 Starvation freedom can be quite easily expressed as a $\omega$-regular language. Indeed, if we rename all internal actions in |ActualSystemR| to |wait| and hide all |callLock| and |lockAcquired| events from threads other than |t|, the lock is starvation free for thread |t| if it can produce all traces of the following $\omega$-regular language:
 \begin{cspm}
   ((£$\neg$£(callLock.t))£$^{*}$£.(callLock.t).(wait)£$^{*}$£.(lockAcquired.t))£$^{\omega}$£ + 
-  ((£$\neg$£(callLock.t))£$^{*}$£.(callLock.t).(wait)£$^{*}$£.(lockAcquired.t))*.(£$\neg$£(callLock.t))£$^{\omega}$£
+  ((£$\neg$£(callLock.t))£$^{*}$£.(callLock.t).(wait)£$^{*}$£.(lockAcquired.t))£$^{*}$£.(£$\neg$£(callLock.t))£$^{\omega}$£
 \end{cspm}
 
 We can therefore also model starvation freedom using B{\"u}chi automata, which accepts infinite traces that reach an accepting state an infinite number of times
 
+% & G((calllock1 & !(lockacquired1) & !(lockreleased1) & !(wait))
+% || (!(calllock1) & lockacquired1 & !(lockreleased1) & !(wait))
+% || (!(calllock1) & !(lockacquired1) & lockreleased1 & !(wait))
+% || (!(calllock1) & !(lockacquired1) & !(lockreleased1) & wait))
 
 
+% ((G(lockacquired1 -> F(lockreleased1))) -> (G(calllock1 -> F(lockacquired1))))
+% &&  G((calllock1 & !(lockacquired1) & !(lockreleased1) & !(wait))
+% || (!(calllock1) & lockacquired1 & !(lockreleased1) & !(wait))
+% || (!(calllock1) & !(lockacquired1) & lockreleased1 & !(wait))
+% || (!(calllock1) & !(lockacquired1) & !(lockreleased1) & wait))
+
+
+% --Working without release
+% G((! (call & called))) & ((! called) W call) & G((!acquire) W called) & G(call -> X(called U acquire)) & G(acquire -> X((! called) W call)) &  G((call & (!acquire) & !(wait)) || ((!call) & acquire & !(wait)) || ((!call) & (!acquire) & wait))
+
+% Working with release
+% (G(acquire1 -> F(release1)) -> 
+% G(call1 -> X(called1 U acquire1))) &
+
+% ((! called1) W call1) &
+% ((! acquired1) W acquire1) &
+% ((! release1) W acquire1)&
+% G((! (call1 & called1))) &
+% G((! acquire1) W called1) &
+% G(acquire1 -> X((! called1) W call1)) & 
+% G(acquire1 -> X((!call1) W release1)) &
+% G(acquire1 -> X(acquired1 W release1)) &
+% G(release1 -> X((! release1) W acquire1)) &
+% G(release1 -> X((! acquired1) W acquire1)) &
+% G(call1 -> X(called1 U acquire1)) &
+% G((call1 & (!acquire1) & !(wait) & (!release1))
+% || ((!call1) & acquire1 & !(wait) & (!release1))
+% || ((!call1) & (!acquire1) & wait & (!release1))
+% || ((!call1) & (!acquire1) & (!wait) & release1))
+
+% ((! called1) W call1) &((! release1) W call1)&G((! (call1 & called1))) &G((! acquire1) W called1) &G(call1 -> X(called1 U acquire1)) &G(acquire1 -> X((! called1) W call1)) & G(acquire1 -> X((! call1) U release1)) &G(release1 -> X((! release1) W call1)) &G((call1 & (! acquire1) & !(wait) & (! release1))|| ((! call1) & acquire1 & !(wait) & (! release1))|| ((! call1) & (! acquire1) & wait & (! release1))|| ((! call1) & (! acquire1) & (! wait) & release1))
+
+% Trying with 2 threads
+% ((! called1) W call1) &
+% ((! release1) W call1)&
+% G((! (call1 & called1))) &
+% G((! acquire1) W called1) &
+% G(call1 -> X(called1 U acquire1)) &
+% G(acquire1 -> X((! called1) W call1)) & 
+% G(acquire1 -> X((! call1) U release1)) &
+% G(release1 -> X((! release1) W call1)) &
+
+% ((! called2) W call2) &
+% ((! release2) W call2)&
+% G((! (call2 & called2))) &
+% G((! acquire2) W called2) &
+% G(call2 -> X(called2 U acquire2)) &
+% G(acquire2 -> X((! called2) W call2)) & 
+% G(acquire2 -> X((! call2) U release2)) &
+% G(release2 -> X((! release2) W call2)) &
+
+% G(acquire1 -> X(! acquire2 U release1)) &
+% G(acquire2 -> X(! acquire1 U release2)) &
+
+% G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+% || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+% || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))
+% || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)
+% || (call2 & (! acquire2) & !(wait) & (! release2)& 
+% (! call1) & (! acquire1) & (! release1))
+% || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))
+% || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))
+
+
+
+% !(((! called1) W call1) &((! release1) W call1)&G((! (call1 & called1))) &G((! acquire1) W called1) &G(call1 -> X(called1 U acquire1)) &G(acquire1 -> X((! called1) W call1)) & G(acquire1 -> X((! call1) U release1)) &G(release1 -> X((! release1) W call1)) &((! called2) W call2) &((! release2) W call2)&G((! (call2 & called2))) &G((! acquire2) W called2) &G(call2 -> X(called2 U acquire2)) &G(acquire2 -> X((! called2) W call2)) & G(acquire2 -> X((! call2) U release2)) &G(release2 -> X((! release2) W call2)) &G(acquire1 -> X(! acquire2 U release1)) &G(acquire2 -> X(! acquire1 U release2))) &G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))|| ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))|| ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))|| ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)|| (call2 & (! acquire2) & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))|| ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))|| ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))
+
+
+
+
+
+% Two threads v2
+
+% ((! called1) W call1) &
+% ((! acquired1) W acquire1) &
+% ((! release1) W acquire1)&
+% G((! (call1 & called1))) &
+% G((! acquire1) W called1) &
+% G(acquire1 -> X((! called1) W call1)) & 
+% G(acquire1 -> X((! call1) W release1)) &
+% G(acquire1 -> X(acquired1 W release1)) &
+% G(release1 -> X((! release1) W acquire1)) &
+% G(release1 -> X((! acquired1) W acquire1)) &
+% G(call1 -> X(called1 U acquire1)) &
+
+% ((! called2) W call2) &
+% ((! acquired2) W acquire2) &
+% ((! release2) W acquire2)&
+% G((! (call2 & called2))) &
+% G((! acquire2) W called2) &
+% G(acquire2 -> X((! called2) W call2)) & 
+% G(acquire2 -> X((! call2) W release2)) &
+% G(acquire2 -> X(acquired2 W release2)) &
+% G(release2 -> X((! release2) W acquire2)) &
+% G(release2 -> X((! acquired2) W acquire2)) &
+% G(call2 -> X(called2 U acquire2)) &
+
+% G(acquire2 -> X((! acquire1) W release2)) &
+% G(acquire1 -> X((! acquire2) W release1)) & 
+
+
+
+%   G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)
+%   || (call2 & (! acquire2) & !(wait) & (! release2)& 
+%   (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+
+%   (G(acquire1 -> F(release1)) -> G(call2 -> X(called2 U acquire2))) &(G(acquire2 -> F(release2)) -> G(call1 -> X(called1 U acquire1))) &     ((! called1) W call1) &((! acquired1) W acquire1) &((! release1) W acquire1)&G((! (call1 & called1))) &G((! acquire1) W called1) &G(acquire1 -> X((! called1) W call1)) & G(acquire1 -> X((! call1) W release1)) &G(acquire1 -> X(acquired1 W release1)) &G(release1 -> X((! release1) W acquire1)) &G(release1 -> X((! acquired1) W acquire1)) &G(call1 -> X(called1 W acquire1)) &((! called2) W call2) &((! acquired2) W acquire2) &((! release2) W acquire2)&G((! (call2 & called2))) &G((! acquire2) W called2) &G(acquire2 -> X((! called2) W call2)) & G(acquire2 -> X((! call2) W release2)) &G(acquire2 -> X(acquired2 W release2)) &G(release2 -> X((! release2) W acquire2)) &G(release2 -> X((! acquired2) W acquire2)) &G(call2 -> X(called2 W acquire2)) &G(acquire2 -> X((! acquire1) W release2)) &G(acquire1 -> X((! acquire2) W release1)) &   G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)  || (call2 & (! acquire2) & !(wait) & (! release2)&   (! call1) & (! acquire1) & (! release1))  || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))  || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+
+
+%   ((! called1) W call1) &
+% ((! acquired1) W acquire1) &
+% ((! release1) W acquire1)&
+% G((! (call1 & called1))) &
+% G((! acquire1) W called1) &
+% G(acquire1 -> X((! called1) W call1)) & 
+% G(acquire1 -> X((! call1) W release1)) &
+% G(acquire1 -> X(acquired1 W release1)) &
+% G(release1 -> X((! release1) W acquire1)) &
+% G(release1 -> X((! acquired1) W acquire1)) &
+% G(call1 -> X(called1 U acquire1)) &
+
+% ((! called2) W call2) &
+% ((! acquired2) W acquire2) &
+% ((! release2) W acquire2)&
+% G((! (call2 & called2))) &
+% G((! acquire2) W called2) &
+% G(acquire2 -> X((! called2) W call2)) & 
+% G(acquire2 -> X((! call2) W release2)) &
+% G(acquire2 -> X(acquired2 W release2)) &
+% G(release2 -> X((! release2) W acquire2)) &
+% G(release2 -> X((! acquired2) W acquire2)) &
+% G(call2 -> X(called2 U acquire2)) &
+
+% G(acquire2 -> X((! acquire1) W release2)) &
+% G(acquire1 -> X((! acquire2) W release1)) & 
+
+
+
+%   G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)
+%   || (call2 & (! acquire2) & !(wait) & (! release2)& 
+%   (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+
+
+
+%   ((! called1) W call1) &  ((! acquired1) W acquire1) &  ((! release1) W acquire1)&  G((! (call1 & called1))) &  G((! acquire1) W called1) &  G(acquire1 -> X((! called1) W call1)) &   G(acquire1 -> X((! call1) W release1)) &  G(acquire1 -> X(acquired1 W release1)) &  G(release1 -> X((! release1) W acquire1)) &  G(release1 -> X((! acquired1) W acquire1)) &  G(call1 -> X(called1 U acquire1)) &  ((! called2) W call2) &  ((! acquired2) W acquire2) &  ((! release2) W acquire2)&  G((! (call2 & called2))) &  G((! acquire2) W called2) &  G(acquire2 -> X((! called2) W call2)) &   G(acquire2 -> X((! call2) W release2)) &  G(acquire2 -> X(acquired2 W release2)) &  G(release2 -> X((! release2) W acquire2)) &  G(release2 -> X((! acquired2) W acquire2)) &  G(call2 -> X(called2 U acquire2)) &  G(acquire2 -> X((! acquire1) W release2)) &  G(acquire1 -> X((! acquire2) W release1)) &       G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)    || (call2 & (! acquire2) & !(wait) & (! release2)&     (! call1) & (! acquire1) & (! release1))    || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))    || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+
+%   G(acquired1 || acquire2) || (
+%     ((! called1) W call1) &
+%     ((! acquired1) W acquire1) &
+%     ((! release1) W acquire1)&
+%     G((! (call1 & called1))) &
+%     G((! acquire1) W called1) &
+%     G(acquire1 -> X((! called1) W call1)) & 
+%     G(acquire1 -> X((! call1) W release1)) &
+%     G(acquire1 -> X(acquired1 W release1)) &
+%     G(release1 -> X((! release1) W acquire1)) &
+%     G(release1 -> X((! acquired1) W acquire1)) &
+%     G(call1 -> X(called1 U acquire1)) &
+    
+%     ((! called2) W call2) &
+%     ((! acquired2) W acquire2) &
+%     ((! release2) W acquire2)&
+%     G((! (call2 & called2))) &
+%     G((! acquire2) W called2) &
+%     G(acquire2 -> X((! called2) W call2)) & 
+%     G(acquire2 -> X((! call2) W release2)) &
+%     G(acquire2 -> X(acquired2 W release2)) &
+%     G(release2 -> X((! release2) W acquire2)) &
+%     G(release2 -> X((! acquired2) W acquire2)) &
+%     G(call2 -> X(called2 U acquire2)) &
+    
+%     G(acquire2 -> X((! acquire1) W release2)) &
+%     G(acquire1 -> X((! acquire2) W release1))  
+%   ) & G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))
+%   || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)
+%   || (call2 & (! acquire2) & !(wait) & (! release2)& 
+%   (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))
+%   || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))
+
+%   G(acquired1 || acquire2) || (    ((! called1) W call1) &    ((! acquired1) W acquire1) &    ((! release1) W acquire1)&    G((! (call1 & called1))) &    G((! acquire1) W called1) &    G(acquire1 -> X((! called1) W call1)) &     G(acquire1 -> X((! call1) W release1)) &    G(acquire1 -> X(acquired1 W release1)) &    G(release1 -> X((! release1) W acquire1)) &    G(release1 -> X((! acquired1) W acquire1)) &    G(call1 -> X(called1 U acquire1)) &        ((! called2) W call2) &    ((! acquired2) W acquire2) &    ((! release2) W acquire2)&    G((! (call2 & called2))) &    G((! acquire2) W called2) &    G(acquire2 -> X((! called2) W call2)) &     G(acquire2 -> X((! call2) W release2)) &    G(acquire2 -> X(acquired2 W release2)) &    G(release2 -> X((! release2) W acquire2)) &    G(release2 -> X((! acquired2) W acquire2)) &    G(call2 -> X(called2 U acquire2)) &        G(acquire2 -> X((! acquire1) W release2)) &    G(acquire1 -> X((! acquire2) W release1))    ) & G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))  || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)  || (call2 & (! acquire2) & !(wait) & (! release2)&   (! call1) & (! acquire1) & (! release1))  || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))  || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------
+
+
+G((acquire1 -> F(release1)) && (acquire2 -> F(release2))) -> (
+
+((! called1) W call1) &
+((! acquired1) W acquire1) &
+((! release1) W acquire1)&
+G((! (call1 & called1))) &
+G((! acquire1) W called1) &
+G(acquire1 -> X((! called1) W call1)) & 
+G(acquire1 -> X((! call1) U release1)) &
+G(acquire1 -> X(acquired1 U release1)) &
+G(release1 -> X((! release1) W acquire1)) &
+G(release1 -> X((! acquired1) W acquire1)) &
+G(call1 -> X(called1 U acquire1)) &
+
+((! called2) W call2) &
+((! acquired2) W acquire2) &
+((! release2) W acquire2)&
+G((! (call2 & called2))) &
+G((! acquire2) W called2) &
+G(acquire2 -> X((! called2) W call2)) & 
+G(acquire2 -> X((! call2) U release2)) &
+G(acquire2 -> X(acquired2 U release2)) &
+G(release2 -> X((! release2) W acquire2)) &
+G(release2 -> X((! acquired2) W acquire2)) &
+G(call2 -> X(called2 U acquire2)) &
+
+G(acquire2 -> X((! acquire1) U release2)) &
+G(acquire1 -> X((! acquire2) U release1))) & 
+
+
+
+  G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+  || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))
+  || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))
+  || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)
+  || (call2 & (! acquire2) & !(wait) & (! release2)& 
+  (! call1) & (! acquire1) & (! release1))
+  || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))
+  || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+
+ 
+  
+  G((acquire1 -> F(release1)) && (acquire2 -> F(release2))) -> (  ((! called1) W call1) &  ((! acquired1) W acquire1) &  ((! release1) W acquire1)&  G((! (call1 & called1))) &  G((! acquire1) W called1) &  G(acquire1 -> X((! called1) W call1)) &   G(acquire1 -> X((! call1) U release1)) &  G(acquire1 -> X(acquired1 U release1)) &  G(release1 -> X((! release1) W acquire1)) &  G(release1 -> X((! acquired1) W acquire1)) &  G(call1 -> X(called1 U acquire1)) &    ((! called2) W call2) &  ((! acquired2) W acquire2) &  ((! release2) W acquire2)&  G((! (call2 & called2))) &  G((! acquire2) W called2) &  G(acquire2 -> X((! called2) W call2)) &   G(acquire2 -> X((! call2) U release2)) &  G(acquire2 -> X(acquired2 U release2)) &  G(release2 -> X((! release2) W acquire2)) &  G(release2 -> X((! acquired2) W acquire2)) &  G(call2 -> X(called2 U acquire2)) &    G(acquire2 -> X((! acquire1) U release2)) &  G(acquire1 -> X((! acquire2) U release1))) &           G((call1 & (! acquire1) & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & acquire1 & !(wait) & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & (! acquire1) & wait & (! release1)& (! call2) & (! acquire2) & (! release2))    || ((! call1) & (! acquire1) & (! wait) & release1)& (! call2) & (! acquire2) & (! release2)    || (call2 & (! acquire2) & !(wait) & (! release2)&     (! call1) & (! acquire1) & (! release1))    || ((! call2) & acquire2 & !(wait) & (! release2)& (! call1) & (! acquire1) & (! release1))    || ((! call2) & (! acquire2) & !(wait) & release2& (! call1) & (! acquire1) & (! release1)))  
+
+  G((acquire1 -> F(release1)) && (acquire2 -> F(release2))) -> G(call1 -> F(acquire1)) && (call2 -> F(acquire2))

@@ -7,15 +7,27 @@ channel end: ThreadID
 LockEvents = {|callLock, lockAcquired, lockNotObtained, lockReleased|}
 LockEndEvents = union(LockEvents, {|end|})
 LockChans = {callLock, lockAcquired, lockNotObtained, lockReleased}
+--LockEndChans(l) = {callLock.l, lockAcquired.l, lockNotObtained.l, lockReleased.l, end}
 
--- LockSpec is a trace specification for a non-starvation-free lock
-LockSpec :: (LockID, {ThreadID}, {ThreadID}) -> Proc
-LockSpec(l, ts, TS) = end?t:diff(TS, ts) -> LockSpec(l, ts, diff(TS, {t}))
-                      [] callLock.l?t:(diff(TS, ts)) -> LockSpec(l, union(ts, {t}), TS)
-                      [] lockAcquired.l?t:ts -> LockSpecObtained(t, l, ts, TS)
-LockSpecObtained(t, l, ts, TS) = end?t2:diff(TS, union(ts, {t})) -> LockSpecObtained(t, l, ts, diff(TS, {t2}))
-                               [] callLock.l?t2:(diff(TS, union(ts, {t}))) -> LockSpecObtained(t, l, union(ts, {t2}), TS)
-                               [] lockReleased.l.t -> LockSpec(l, diff(ts, {t}), TS)
+-- LockSpec2 is a trace specification for a non-starvation-free lock
+LockSpec2 :: (LockID, {ThreadID}, {ThreadID}) -> Proc
+LockSpec2(l, ts, TS) = end?t:diff(TS, ts) -> LockSpec2(l, ts, diff(TS, {t}))
+                      [] callLock.l?t:(diff(TS, ts)) -> LockSpec2(l, union(ts, {t}), TS)
+                      [] lockAcquired.l?t:ts -> LockSpec2Obtained(t, l, ts, TS)
+LockSpec2Obtained(t, l, ts, TS) = end?t2:diff(TS, union(ts, {t})) -> LockSpec2Obtained(t, l, ts, diff(TS, {t2}))
+                               [] callLock.l?t2:(diff(TS, union(ts, {t}))) -> LockSpec2Obtained(t, l, union(ts, {t2}), TS)
+                               [] lockReleased.l.t -> LockSpec2(l, diff(ts, {t}), TS)
+
+
+LockSpec(l, ts) = SpecLock(l) [|{|lockAcquired.l, lockReleased.l|}|]
+                    (||| t <- ThreadID @ SpecThread(l, t))
+SpecThread(l, t) = callLock.l.t -> lockAcquired.l.t -> lockReleased.l.t -> SpecThread(l, t)
+          [] end.t -> STOP
+SpecLock(l) = lockAcquired.l?t -> lockReleased.l.t -> SpecLock(l)
+
+--  Spec = ( || t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}] 
+               -- Lineariser(t)) \ {sync}
+
 
 -- These are used to check mutual exclusion on any lock implementation
 -- CheckMutualExclusion(l) should trace refine any lock l with only the
@@ -24,6 +36,8 @@ CheckMutualExclusion(l) = lockAcquired.l?t:ThreadID -> lockReleased.l.t -> Check
 OnlyRootObtain(l, ts) = diff(LockEndEvents, 
                              {lockAcquired.l.t, lockReleased.l.t | t <- ts})
 
+
+
 -- This tests the lock property of deadlock-freeness
 -- Actual test is assert AcquireLock(L.0, {}, ThreadID) [F=
 --          ActualSystemRExtDiv \ AcquireLockChans(L.0, ThreadID)
@@ -31,7 +45,7 @@ AcquireLock :: (LockID, {ThreadID}, {ThreadID}) -> Proc
 AcquireLock(l, ts, TS) = end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t})) 
                          [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
                          [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
-AcquireLockChans(l, ts) = diff(LockEvents, 
+AcquireLockChans(l, ts) = diff(LockEndEvents, 
                         {callLock.l.t, lockAcquired.l.t | t <- ts})
 
 

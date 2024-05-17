@@ -2,7 +2,9 @@
 \section{Monitors}
 \framebox{This is intended to be used in an earlier background section}
 
-A monitor can be used to ensure that certain operations on an object can only be performed under mutual exclusion. Here we consider the implementation of a monitor used by the Java Virtual Machine (JVM).
+A monitor can be used to ensure that certain operations on an object can only be performed under mutual exclusion. Here we first consider the implementation of a monitor used by the Java Virtual Machine (JVM), before considering an alternative implementation that addresses some of the limitations of the JVM monitor.
+
+\subsection{The JVM monitor}
 
 Mutual exclusion between function calls is provided inside the JVM via |synchronized| blocks. Only one thread is allowed to be active inside the synchronized blocks of an object at any point; a separate thread trying to execute a |synchronized| expression will have to wait for the former to release the lock before proceeding. Inside a |synchronized| block, a thread can also call |wait()| to suspend and give up the lock. This waits until a separate thread (which can now proceed) executes a |notify()|, which will wake the waiting thread and allow it to proceed once the notifying thread has released the lock.
 
@@ -11,21 +13,23 @@ It is important to note that the implementation of |wait()| is buggy. Sometimes 
 
 
 
-\subsection{Modelling monitors with CSP}
+\subsubsection{Modelling the JVM monitor}
 
-For our model of a monitor in CSP we have extended the |JVMMonitor| provided by Lowe\framebox{cite}. This allows us to more flexibly model using a variable number of monitors, one per object across across |n| objects.
+\inlineCSP
 
-The module previously provided a single monitor; this is problematic in case we have multiple objects which each require their own monitor. We instead introduce a datatype |Monitor|, with this type containing all possible 'objects' that could require their own monitors. The |JVMMonitor| module is then changed to be parameterised over some subset of |Monitor|. The internal channels and processes now also take some |Monitor| value to identify which object is being reffered to at any point.
+For our model of a monitor in CSP we have extended the |JVMMonitor| provided by Lowe \cite{LoweJVMMonitor}.
+
+Lowe's module previously provided a single monitor; this is problematic in case we have multiple objects which each require their own monitor. We instead introduce a datatype |MonitorID|, with this type containing all possible 'objects' that could require their own monitors. The |JVMMonitor| module is then changed to be parameterised over some subset of |MonitorID|. The internal channels and processes now also take some |MonitorID| value to identify which object is being reffered to at any point.
 
 %This required changing the module to parameterise it over the |Monitor| type, with this containing all possible 'objects' that could require a monitor, allowing for each object we model to have its own, independent monitor; this is similar to how the JVM assigns each object its own monitor. The original implementation requires that a new |JVMMonitor| be instantiated every time a unique monitor was required; this is very fiddly for when we have a variable number of monitors required. Instead the internal channels are now of the type \inlineCSP |Monitor . ThreadID|, allowing for easy identification of which object the monitor accompanies.
 
-Internally, the model of the monitor uses a one lock per |MonitorID|. These also have an additional parameter storing the identities of any waiting threads\framebox{full code in an appendix?}. So that it is a faithful model of an actual JVMMonitor we also model spurious wakeups via the |spuriousWakeup| channel. We therefore run the the lock process in parallel with a regulator process |Reg = CHAOS({|spuriousWakeup|})|; this is used to non-deterministically allow or block spurious wakeups where appropriate. This is important as when we hide |spuriousWakeup| events we have that every state in FDR that allows a |spuriousWakeup| has a pair which blocks the |spuriousWakeup|. This allows us to perform refinement checks in the stable-failures model instead of just the failures-divergences model, allowing us to write more natural specification processes.
+Internally, the model uses one lock per |MonitorID|. These also have an additional parameter storing the identities of any waiting threads\framebox{full code in an appendix?}. So that it is a faithful model of an actual JVMMonitor we also model spurious wakeups via the |spuriousWakeup| channel. We therefore run the the lock process in parallel with a regulator process |Reg = CHAOS({|spuriousWakeup|})|; this is used to non-deterministically allow or block spurious wakeups where appropriate. This is important as when we hide |spuriousWakeup| events we have that every state in FDR that allows a |spuriousWakeup| has a pair which blocks the |spuriousWakeup|. This allows us to perform refinement checks in the stable-failures model instead of just the failures-divergences model, allowing us to write more natural specification processes.
 
 Our model of the monitor provides the following exports:
 
 \begin{figure}[H]
 \begin{cspm}
-module JVMMonitor_"(MonitorID)"_
+module JVMMonitor"(MonitorID)"
     ...
     Reg = CHAOS({|spuriousWakeup|})
 exports
@@ -33,40 +37,40 @@ exports
     -- All events except spuriousWakeup
     events = {| acquire, release, wait, notify, notifyAll |}
 
-    channel spuriousWakeup : _"MonitorID"_ . ThreadID
+    channel spuriousWakeup : "MonitorID" . ThreadID
   
-    _"InitialiseAll =
-      ||| mon <- MonitorID @ (Unlocked(mon, {})  [| {|spuriousWakeup|} |] Reg)"_
+    "InitialiseAll ="
+      "||| mon <- MonitorID @ (Unlocked(mon, {})  [| {|spuriousWakeup|} |] Reg)"
 
-    runWith(_"obj"_, P) = P [| events |] (Unlocked(_"obj"_, {})  [| {|spuriousWakeup|} |] Reg)
+    runWith("obj", P) = P [| events |] (Unlocked("obj", {})  [| {|spuriousWakeup|} |] Reg)
 
     -- Interface to threads.
 
     -- Lock the monitor
-    Lock(_"obj"_, t) = ...
+    Lock("obj", t) = ...
 
     -- Unlock the monitor
-    Unlock(_"obj"_, t) = ...
+    Unlock("obj", t) = ...
 
     -- Perform P under mutual exclusion
-    Synchronized(_"obj"_, t, P) = ...
+    Synchronized("obj", t, P) = ...
 
     -- Perform P under mutual exclusion, and apply cont to the result. 
     -- MutexC :: (ThreadID, ((a) -> Proc) -> Proc, (a) -> Proc) -> Proc
-    SynchronizedC(_"obj"_, t, P, cont) = ...
+    SynchronizedC("obj", t, P, cont) = ...
 
     -- Perform a wait(), and then regain the lock.
-    Wait(_"obj"_, t) = ... 
+    Wait("obj", t) = ... 
 
     -- perform a notify()
-    Notify(_"obj"_, t) = ...
+    Notify("obj", t) = ...
 
     -- perform a notifyAll()
-    NotifyAll(_"obj"_, t) = ...
+    NotifyAll("obj", t) = ...
 
 endmodule
 \end{cspm}
-\caption{The interface of the JVMMonitor module; changes are highlighted in red (and underlined for B\&W)}
+\caption{The interface of the JVMMonitor module; changes are underlined}
 \end{figure}
 
 Each monitor provides |Wait(o, t)|, |Notify(o, t)| and |Synchronized(o, t, Proc)| methods to model the equivalent functions/blocks in SCL. The |Proc| parameter is used to specify the process that will be run inside the |Synchronized| block; the intended usage of this is of the form |callFunc.o.t -> Synchronized(o, t, syncFunc)| where the process communicates that it is calling the model of fucntion |Func| before completing the rest of the function whilst holding the monitor lock.

@@ -16,7 +16,7 @@ channel delay: ThreadID
 -- state variable
 channel getState, setState : ThreadID . Bool
 channel gASState : ThreadID . Bool . Bool
-State = Var(false, getState, setState, gASState)
+State = AtomicVar(false, getState, setState, gASState)
 InternalChannels = {|getState, setState, gASState, delay|}
 
 
@@ -46,7 +46,7 @@ Unlock(t) = setState.t!False -> SKIP -- def unlock = state.set(false)
 --       callLock.l.t -> lockNotObtained.l.t
 --NotHolding(t) = callLock.L.0.t -> Lock(t)--(TryLock(t) |~| Lock(t))
 
-Thread(t) = Lock(t); Unlock(t); Thread(t)
+Thread(t) = callLock.L.0.t -> Lock(t); Unlock(t); Thread(t)
             |~| end.t -> SKIP
 
 
@@ -61,6 +61,10 @@ ActualSystemR = (ActualSystem
                   setState.t.False <- lockReleased.L.0.t | t <- ThreadID]])
                     \ InternalChannels
 
+ActualSystemROnly = (ActualSystem 
+                  [[gASState.t.False.True <- lockAcquired.L.0.t, 
+                  setState.t.False <- lockReleased.L.0.t | t <- ThreadID]])
+
 
 -- Should pass as no 'internal' events
 assert ActualSystem :[divergence free]
@@ -68,6 +72,8 @@ assert ActualSystem :[divergence free]
 assert not ActualSystemR :[divergence free]
 -- Passes with all threads immediately terminating
 assert not ActualSystem :[deadlock free]
+
+assert LockSpec(L.0, ThreadID) [F= ActualSystemR 
 
 -- Need to stop all ends occuring before any locking
 threadRegulator(n) = if n > 1 then end?t -> threadRegulator(n-1) 
@@ -81,8 +87,11 @@ assert ActualSystemNoTerminate :[deadlock free]
 
 -- Check that no two threads hold the lock at the same time
 assert CheckMutualExclusion(L.0) [T= 
-          ActualSystemR \ diff(LockEvents, OnlyRootObtain(L.0, ThreadID))
+          ActualSystemR \ OnlyRootObtain(L.0, ThreadID)
 
+assert AcquireLock(L.0, {}, ThreadID) [T= 
+          ActualSystemR \ AcquireLockChans(L.0, ThreadID)--
+                            --diff(LockEndEvents, AcquireLockChans(L.0, ThreadID))
 -- Check no divergence before the lock is first held
 CheckNoDiv = gASState?t!False.True -> STOP 
           [] getState?t._ -> CheckNoDiv
@@ -91,5 +100,20 @@ assert (ActualSystem [|{|gASState, getState|}|] CheckNoDiv)
 
 
 
-assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemR
-assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)
+assert LockSpec(L.0, ThreadID) [T= ActualSystemR
+assert ActualSystemR [F= LockSpec(L.0, {})
+
+channel error
+Reg(n) =    gASState?_ -> if (n < card(ThreadID)) then Reg(n+1)
+                          else error -> DIV
+         [] lockReleased?_ -> Reg(0)
+
+assert LockSpec(L.0, ThreadID) [T= ActualSystemR [|{|gASState, lockReleased|}|] Reg(0)
+
+
+Live(l) = lockAcquired.l?t -> Live1(l)
+        |~| STOP
+Live1(l) = lockReleased.l?t -> Live(l)
+        |~| DIV
+
+assert Live(L.0) [FD= ActualSystemR \ {|end|}

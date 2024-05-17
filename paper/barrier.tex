@@ -1,17 +1,16 @@
 \section{Barrier synchronisation}
 \inlineScala
 
-A barrier synchronisation object is used to synchronise some number of threads.\framebox{THIS} This allows for a program with threads working on some shared memory which all threads can update to use a number of rounds of synchronisation in order to ensure thread-safety. Programs which use global synchronisation typically operate by instantiating some barrier object with each thread calling |sync| on the barrier once they have completed their current round. Each call to |sync| only returns after all threads have called |sync|, synchronising all the threads at that point in time and allowing the threads to proceed\cite{CP}.
+A barrier synchronisation object is used to synchronise some number of threads. This allows for a program with threads working on some shared memory which all threads can update to use a number of rounds of synchronisation in order to ensure thread-safety. Programs which use global synchronisation typically operate by instantiating some barrier object and then having each thread call |sync| on the barrier once they have completed their current round. Each call to |sync| only returns after all threads have called |sync|, synchronising all the threads at that point in time and allowing the threads to proceed afterwards \cite{CP}.
 
-Here we will model and analyse an implementation of a barrier synchronisation for |n| threads internally using a binary heap of |n| two-thread signalling objects.
+Here we model and analyse an |n| thread barrier synchronisation object, internally using a binary heap of |n| two-thread signalling objects.
 
 \subsection{The Signal object}
 
 We first consider the signalling object |Signal|. This is used to synchronise between a `parent' and `child' thread, providing three external methods:
 
-
 \begin{itemize}
-  \item \scalastyle{signalUpAndWait} is used by the child to signal to the parent that the child is ready to synchronise and waits until the parent signals back;
+  \item |signalUpAndWait| is used by the child to signal to the parent that the child is ready to synchronise and waits until the parent signals back;
   \item |waitForSignalUp| is used by the parent to wait for the child to be ready;
   \item |signalDown| is used to indicate to the child that the synchronisation has completed.
 \end{itemize}
@@ -51,7 +50,6 @@ The |signalUpAndWait| function first asserts that there currently is no other ch
 |waitForSignalUp| is used by a parent to wait for the child node to perform a |signalUpAndWait| and notify the parent; the |while| loop is again used to guard against spurious wakeups.
 
 The |signalDown| function is used to signal to the child that the synchronisation has been completed and that the child can return from its |signalUpAndWait| call.
-
 
 \subsubsection{Modelling the Signal objects}
 
@@ -153,13 +151,15 @@ This checks that the thread's identity is such that |signals(me)| does not cause
   BarrierSystem = InitialiseSignals(Threads)
 \end{cspm}
 
-\framebox{Prior explanation for T.me and S.me}The process |Thread(T.me)| models the individual behaviour of a specific thread with identity |T.me :: ThreadID|, with each thread nondeterministically choosing to either terminate after communicating an |end.T.me| or to call the CSP model of the \scalastyle{sync(me)}. In the latter case, a communication of |beginSync.T.me| is used to indicate the start of the synchronisation. The |Sync(T.me)| definition is very straightforward, with most of it directly following from the Scala definition; the only further change is that |Sync(T.me)| communicates a |endSync.T.me| event just before it terminates.
+We recall from earlier that |datatype ThreadID = T.{0..n-1}|. The process |Thread(T.me)| models the individual behaviour of a specific thread with identity |T.me :: ThreadID|, with each thread nondeterministically choosing to eithe communicate an |end.T.me| and terminate or to call the CSP model of \scalastyle{sync(me)}. In the latter case, a communication of |beginSync.T.me| is used to indicate the start of the synchronisation. The |Sync(T.me)| definition is very straightforward, with it mostly following directly from the Scala definition; the only further change is that |Sync(T.me)| communicates a |endSync.T.me| event just before it terminates.
 
 The |thread| processes are then interleaved together to yield |Threads|. We then initialise the system with |Signal| objects that can nondeterministically allow or block spurious wakeups to give |BarrierSystem|. We hide all events of the signal object, so the only visible channels of |BarrierSystem| are |{|beginSync, endSync, spuriousWakeup, end|}|.
 
 \subsection{Correctness of the model}
 
-We first will show that the barrier synchronisation is correct. This means that it can be correctly linearised and if a synchronisation is possible then it will always occur. Correctly linearised means that the barrier synchronisation can be considered to occur at some point between when all |n| threads have communicated |beginSync| and when the first thread communicates an |endSync| event. The requirement that a linearisation must occur means that if all |n| threads communicate a |beginSync| then none of the threads can be blocked from communicating their respective |endSync|.
+We will show that the barrier synchronisation is correct; here correct requires that the synchronisation can be correctly linearised and if a synchronisation is possible then it will always occur. 
+
+Correctly linearised in this context means that the barrier synchronisation can be considered to occur at some point between when all |n| threads have communicated |beginSync| and when the first thread communicates an |endSync| event. The requirement that a linearisation must occur means that if all |n| threads communicate a |beginSync| then none of the threads can be blocked from communicating their respective |endSync|.
 
 \begin{cspm}
   Lineariser(t) = beginSync.t -> sync -> endSync.t -> Lineariser(t)
@@ -168,11 +168,11 @@ We first will show that the barrier synchronisation is correct. This means that 
                Lineariser(t)) \ {sync}
 \end{cspm}
 
-|Lineariser(t)| allows any thread to |beginSync.t| followed by an |endSync.t|, representing the call and return of \scalastyle{barrier.sync()}. The |sync| event can be considered to be the point at which the barrier synchronisation occurs since all threads must synchronise on this, fulfilling the requirement above. Additionally, each thread can terminate via |end.t|, indicating that it will perform no further synchronisations; this also restricts all other threads from completing a barrier synchronisation as |t| is no longer able to communicate a |sync|.
+|Lineariser(t)| allows any thread to |beginSync.t| followed by an |endSync.t|, representing the call and return of \scalastyle{barrier.sync()}. The |sync| event can be considered to be the point at which the barrier synchronisation occurs since all threads must synchronise on this, fulfilling the requirement above. Additionally, each thread can terminate via |end.t|, indicating that it will perform no further synchronisations. This blocks all other threads from completing a barrier synchronisation, which is the intended behaviour.
 
-We first note that |BarrierSystem| is divergence-free, but \CSPM{BarrierSystem \\ \{|spuriousWakeup|\}} is not. |BarrierSystem| being divergence-free is relevant as this means that we never breach the assertion in the \scalastyle{SignalUpAndWait} function (recall that the model would diverge if the value of |state| was |true|) and that the system is divergence-free with visible spurious wakeups. This therefore means hiding the |spuriousWakeup| events must be the cause of the divergences. This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. This is not a particular cause for concern as although the JVM could allow an unbounded number of spurious wakeups, in practice spurious wakups occur infrequently.
+We first note that |BarrierSystem| is divergence-free, but \CSPM{BarrierSystem \\ \{|spuriousWakeup|\}} is not. |BarrierSystem| with spurious wakeups visisble being divergence-free is relevant as this means that we never breach the assertion in the \scalastyle{SignalUpAndWait} function; this therefore means hiding the |spuriousWakeup| events must be the cause of the divergences\framebox{check that isn't an internal divergence caused by hiding spuriousWakeup}. This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. Similarly to before this is not a particular cause for concern; in practice spurious wakups occur infrequently within the JVM.
 
-We now consider the traces model, where we have that the following holds:
+We first consider the traces model, where we have that the following holds:
 \begin{cspm}
   assert Spec [T= BarrierSystem \ {|spuriousWakeup|}
 \end{cspm}

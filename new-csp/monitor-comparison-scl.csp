@@ -1,4 +1,4 @@
-n = 2
+n = 5
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0}--..n-1}
 datatype MonitorID = SigM.SignalID
@@ -178,7 +178,7 @@ assert SCLSystemDet :[divergence free]
 
 
 assert (SpecSCL) [T= (SCLSystem)
-assert SpecSCL [F= (SCLSystem) --[[SCL::callSignalSpec.m.c.t.t <- SCL::callSignal.m.c.t | m <- MonitorID, c <- ConditionID, t <- ThreadID, t' <- ThreadID]])
+assert SpecSCL [F= (SCLSystem)  :[symmetry reduce]: ThreadID --[[SCL::callSignalSpec.m.c.t.t <- SCL::callSignal.m.c.t | m <- MonitorID, c <- ConditionID, t <- ThreadID, t' <- ThreadID]])
 
 assert SpecSCL [F= (OrderCheck(SigM.S.0, initSeq) 
                      [|{|SCL::callAwait.SigM.S.0,

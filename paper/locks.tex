@@ -1,6 +1,8 @@
 \section{Modelling and analysing implementations of locks}
 \label{sec:locks}
 
+
+
 % \inlineScala
 
 % In this section we will analyse a number of different lock implementations. 
@@ -326,11 +328,11 @@
 
 \subsubsection{Starvation Freedom} \label{starvation-freedom}
 
-Starvation freedom is a liveness property that states that every thread that attempts to acquire the lock eventually succeeds \cite{CADS}. It requires that any thread attempting to gain the lock must can only be bypassed by other threads a finite number of times.
+Starvation freedom is a liveness property that states that, under the assumption that no thread holds the lock indefinitely, every thread that attempts to acquire the lock eventually succeeds \cite{TAoMP}. It requires that any thread attempting to gain the lock must can only be bypassed by other threads a finite number of times.
 
-One common approach to checking infinite properties in CSP is to hide some (in this case internal) channels and then check that the model does not diverge. This approach does not work here: consider a starvation-free lock which uses busy waiting (repeatedly testing if the lock is available). We have that hiding the internal communications results in a divergence, however the lock is, by definition, starvation-free; an example of this is the Peterson lock \framebox{link to model}.
+One common approach to checking infinite properties in CSP is to hide some (in this case internal) channels and then check that the model does not diverge. This approach does not work here: consider a starvation-free lock which uses busy waiting (repeatedly testing if the lock is available). We have that hiding the internal communications results in a divergence, however the lock is starvation-free. An example of such a lock is the Peterson lock \framebox{link to model}.
 
-Roscoe and Gibson-Robinson showed that every infinite traces property that can be captured by CSP refinement can also be captured by a finite-traces refinement check when combined with the satisfaction of a deterministic B{\"u}chi automaton \cite{RoscoeBuchi}. However, we can show that such an automaton must be non-deterministic. 
+Roscoe and Gibson-Robinson showed that every infinite traces property that can be captured by CSP refinement can also be captured by a finite-traces refinement check when combined with the satisfaction of a deterministic B{\"u}chi automaton \cite{RoscoeBuchi}. A B{\"u}chi automaton, as explained by \framebox{REF}, is an automaton that takes infinite inputs and accepts an input if an accepting state is visited infinitely often \framebox{Improve}.\framebox{need to go over the above} However, we can show that no deterministic B{\"u}chi automaton can capture starvation freedom. 
 
 % The automaton should be satisifed by any trace where some thread obtains the lock; this requires that the BA has some accepting state that can be visited an infinite amount of times when some thread |t| holds the lock. Since BA have a finite number of states, that state must be reachable in a finite sequence of steps. As a result, the BA must be satisfied by some thread obtaining the lock, reaching an accepting state in the BA, releasing the lock and repeating that same process. This, however, would accept non-starvation free locks.
 
@@ -344,19 +346,28 @@ Roscoe and Gibson-Robinson showed that every infinite traces property that can b
 
 % Suppose we have a 2-threaded lock which is starvation free. The BA should be satisfied by a run where thread |T.1| proceeds and is permanently descheduled before obtaining the lock 
 
-Let us without loss of generality consider 2-threaded locks. 
+We will show by contradiction that no such deterministic automaton $B$ can capture starvation freedom. Let us without loss of generality consider 2-threaded locks. 
 
-We can first conclude that the B{\"u}chi automaton has at least one accepting state reachable while |T.0| holds the lock and |T.1| attempts to acquire the lock. By the definition of starvation freedom, the automaton should be satisfied if |T.0| never releases the lock. The automaton therefore must have at least one accepting state where |T.0| holds the lock and the repeated actions of the threads cause (a subset of) the accepting states to be visited infinitely often.
+By the definition of starvation freedom, the automaton should be satisfied if |T.0| acquires and never releases the lock and |T.1| attempts to acquire the lock. The automaton therefore must have some accepting state which is visited an infinite number of times when |T.0| holds the lock and |T.1| attempts to acquire it; we will call this state $q_{a}$.
+
+%the repeated actions of the threads cause (a subset of) the accepting states to be visited infinitely often.
 
 % Now suppose that |T.0| again holds the lock and |T.1| is attempting to acquire the lock. By the above, we have that there is some reachable accepting state in the automaton where this is the case; we run until we reach this state and then |T.0| releases the lock. |T.0| then reobtains the lock successfully - we have that the automaton can not block this behviour, else it excludes the starvation-free lock where |T.1| can only obtain the lock when |T.0| has acquired and released the lock an even number of times. Again, since |T.0| could hold the lock indefinitely, we have that some accepting state must be reachable where |T.0| holds the lock and |T.1| is attempting to acquire the lock. Once we reach this state, |T.0| can release the lock and repeat this cycle. Since this cycle can be repeated indefinitely, we have that this is required to be an accepting run if the lock is starvation free. However, we have that the run is accepted even if the lock is not starvation-free; an example being the TAS lock from before as the only communication |T.1| makes whilst trying to obtain the lock unsuccessfully is via same |getAndSet.l.T.1.true.true| communication). 
 
 % We therefore have that we have shown by construction that a general, deterministic B{\"u}chi automaton for starvation-freeness cannot exist.
 
-Now we consider the TAS lock from before. This is clearly not starvation free as the first thread to communicate on |getAndSet| once the lock becomes available will acquire it. As a result |T.0| can bypass |T.1| an infinite number of times, hence the TAS lock is not starvation free. We have from the above that there must exist some accepting state in the automaton which is reachable when |T.0| holds the lock and |T.1| is attempting to obtain the lock. Since |T.1| only has one available state when |T.0| holds the lock (communicating a |getAndSet.L.0.T.1.false.false|), we have that this accepting state must be reachable whenever |T.0| bypasses |T.1|. As a result, we have that |T.0| can obtain the lock an infinite number of times, and each of these bypasses can result in a visit to an accepting state of the automaton. We therefore have that the B{\"u}chi automaton accepts this run despite the both the run and the TAS lock not being starvation-free. This is a contradication and hence we have that no such deterministic automaton can exist.
+Now we consider the TAS lock from before. This is clearly not starvation free as the first thread to communicate on |getAndSet| once the lock becomes available will acquire it; this allows some thread to infinitely bypass some other waiting thread. Consider an execution where |T.0| repeatedly acquires and releases the lock, bypassing |T.1| which is repeatedly attempting and failing to obtain the lock. This execution, however, passes through the state $q_{a}$ of $B$ every time |T.0| acquires and later releases the lock. This can occur an infinite number of times, resulting in $B$ accepting this execution. This is a contradiction as this execution is clearly not starvation free as |T.1| never obtains the lock, however it still satisfies $B$.
 
-We hence have that no deterministic B{\"u}chi automaton can accurately capture starvation freedom and hence we cannot test directly for starvation-freedom through a standard FDR refinement check.
+
+% Now we consider the TAS lock from before. This is clearly not starvation free as the first thread to communicate on |getAndSet| once the lock becomes available will acquire it. As a result |T.0| can bypass |T.1| an infinite number of times, hence the TAS lock is not starvation free. We have from the above that there must exist some accepting state in the automaton which is reachable when |T.0| holds the lock and |T.1| is attempting to obtain the lock. Since |T.1| only has one available state when |T.0| holds the lock (communicating a |getAndSet.L.0.T.1.false.false|), we have that this accepting state must be reachable whenever |T.0| bypasses |T.1|. As a result, we have that |T.0| can obtain the lock an infinite number of times, and each of these bypasses can result in a visit to an accepting state of the automaton. We therefore have that the B{\"u}chi automaton accepts this run despite the both the run and the TAS lock not being starvation-free. This is a contradiction and hence we have that no such deterministic automaton can exist.
+
+\framebox{Improve}We hence have that no deterministic B{\"u}chi automaton can accurately capture starvation freedom and hence we cannot test directly for starvation-freedom through a standard FDR refinement check.
 
 \subsection{First-come-first-served}
 
-We can instead consider capturing the stronger propety of first-come-first-served. Locks that satisfy this property can be split into an initial doorway section and later waiting section. This property states that one a thread has completed the doorway section of the lock it cannot be overtaken by a thread that has not yet
+We can instead consider capturing the stronger propety of first-come-first-served. Locks that satisfy this property can be split into a \emph{doorway} section of a bounded number of steps and a folowing \emph{waiting} section of a potentially unbounded number of execution steps. This property states that once thread |X| has completed the doorway section of the lock it cannot be overtaken by a thread |Y| that has not yet started its doorway section; i.e.~ |X| will acquire the lock before |Y| acquires the lock. This implies starvation-freedom as once |X| has completed its doorway section, it can only be bypassed by threads who have started their doorway section prior to |X|.
+
+\begin{cspm}
+  FCFS()
+\end{cspm}
 

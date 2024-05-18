@@ -1,19 +1,19 @@
 
 -- My modified version of JVMMonitor from Lowe's GitHub
 -- Changed the types of the channels to more easily allow a 
--- non-hardcoded number of monitor instances
+-- non-hardcoded number of MonitorID instances
 
--- Events for monitor actions
+-- Events for MonitorID actions
 -- channel acquire, release: ObjectID . ThreadID
 -- channel wait, timedAwait: ObjectID . ThreadID 
 -- channel notify: ObjectID . ThreadID . ThreadID
 -- channel notifyAll: ObjectID . ThreadID 
 
 -- TODO: Make more polymorphic
-channel acquire, release: Monitor . ThreadID
-channel wait, timedAwait: Monitor . ThreadID 
-channel notify: Monitor . ThreadID . ThreadID
-channel notifyAll: Monitor . ThreadID 
+channel acquire, release: MonitorID . ThreadID
+channel wait, timedAwait: MonitorID . ThreadID 
+channel notify: MonitorID . ThreadID . ThreadID
+channel notifyAll: MonitorID . ThreadID 
 
 -- channel acquire, release: SignalID . ThreadID
 -- channel wait, timedAwait: SignalID . ThreadID 
@@ -22,7 +22,7 @@ channel notifyAll: Monitor . ThreadID
 
 -- We use a set waiting ::{ThreadID} to record those threads waiting.
 
--- The monitor in the unlocked state.  waiting records those threads waiting.
+-- The MonitorID in the unlocked state.  waiting records those threads waiting.
 -- Unlocked :: ({ThreadID}) -> Proc
 Unlocked(obj, waiting) =
   -- Note: we don't allow waiting threads to acquire the lock. 
@@ -30,7 +30,7 @@ Unlocked(obj, waiting) =
   []
   spuriousWakeup.obj?t:waiting -> Unlocked(obj, diff(waiting,{t}))
 
--- The monitor locked by t.
+-- The MonitorID locked by t.
 -- Locked :: (ThreadID, {ThreadID}) -> Proc 
 Locked(obj, t, waiting) = 
   release.obj.t -> Unlocked(obj, waiting)
@@ -51,7 +51,7 @@ Reg = CHAOS({|spuriousWakeup|})
 
 -- TODO: make more polymorphic
 --channel spuriousWakeup : ObjectID . ThreadID
-channel spuriousWakeup : Monitor . ThreadID
+channel spuriousWakeup : MonitorID . ThreadID
 
 -- All events except spuriousWakeup
 events = {| acquire, release, wait, notify, notifyAll |}
@@ -60,6 +60,14 @@ InitialiseAll(mon) = (Unlocked(mon, {})  [| {|spuriousWakeup|} |] STOP)
 InitialiseSpurMonitor(mon) = (Unlocked(mon, {})  [| {|spuriousWakeup|} |] Reg)
 
 runWith(obj, P) = P [| events |] (Unlocked(obj, {})  [| {|spuriousWakeup|} |] Reg)
+
+runWithMultiple(objs, P) = 
+  P [| events |] 
+    (||| obj <- objs @ (Unlocked(obj, {})  [| {|spuriousWakeup|} |] Reg))
+
+-- runWithAll(P) = 
+--   P [| events |] 
+--     (||| mon <- MonitorID @ (Unlocked(mon, {})  [| {|spuriousWakeup|} |] Reg))
 
 -- Interface to threads.
 

@@ -1,11 +1,11 @@
 include "variable.csp"
 
---include "MyJVMMonitor.csp"
-include "scl-monitor.csp"
+include "MyJVMMonitor.csp"
+--include "scl-monitor.csp"
 
-datatype SignalID = S.{0}
-datatype MonitorID = SigM.SignalID
-datatype ThreadID = T.{0}
+-- datatype SignalID = S.{0}
+-- datatype MonitorID = SigM.SignalID
+-- datatype ThreadID = T.{0}
 
 
 -- WaitNotify and Notifying are used to model the wait and notify functions
@@ -17,12 +17,10 @@ datatype ThreadID = T.{0}
 
 -- The state variable for the signal objects
 channel getState, setState : SignalID . ThreadID . Bool
-stateChannels = {|getState, setState|}
-State = Array(SignalID, false, getState, setState)
+stateChannels(s) = {|getState.s, setState.s|}
+State :: (SignalID) -> Proc
+State(s) = Var(false, getState.s, setState.s)
 
-
--- The channels to represent a call of each of the methods offered by 
--- the signal object
 channel callSignalUpAndWait, callWaitForSignalUp, callSignalDown : SignalID . ThreadID
 signalChannels = {|callSignalUpAndWait, callWaitForSignalUp, callSignalDown|}
 
@@ -68,25 +66,34 @@ SignalWaitingForFalse(s, t) =
 --NewInitialiseSignals = 
 
 
-OldInitialiseSignals(threads) = 
-  (threads [|union(events, stateChannels)|] 
-    (State ||| InitialiseAll)) \ union(stateChannels, events)
+-- OldInitialiseSignals(threads) = 
+--   (threads [|union(events, allStateChannels)|] 
+--     (States ||| InitialiseAll)) \ union(allStateChannels, events)
 
-OldNewInitialiseSignals(threads) = 
-  ((threads [|stateChannels|] State) [|events|]  InitialiseAll) \ union(stateChannels, events)
+-- OldNewInitialiseSignals(threads) = 
+--   ((threads [|allStateChannels|] States) [|events|]  InitialiseAll) \ union(allStateChannels, events)
 
-InitialiseSignals(threads) = 
-  runWithAll(threads [|stateChannels|] State)  \ union(stateChannels, events)
+InitialiseSignal(sig, threads) = 
+  runWith(SigM.sig, threads [|stateChannels(sig)|] State(sig)) 
+      \ union(stateChannels(sig), events)
 
-Test = Signal(SigM.S.0, T.0)
+allStateChannels(sigs) = {|getState.s, setState.s | s <- sigs|}
+States(sigs) = ||| s <- sigs @ State(s)
+monitors(sigs) = {SigM.s | s <- sigs}
 
-assert InitialiseSignals(Test) [T= signal.SigM.S.0.T.0 -> STOP
-assert signal.SigM.S.0.T.0 -> STOP [T= InitialiseSignals(Test) 
+InitialiseSignals(sigs, threads) = 
+  runWithMultiple(monitors(sigs), threads [|allStateChannels(sigs)|] States(sigs))  
+      \ union(allStateChannels(sigs), events)
+
+-- Test = (SigM.S.0, T.0)
+
+-- assert InitialiseSignals(Test) [T= signal.SigM.S.0.T.0 -> STOP
+-- assert signal.SigM.S.0.T.0 -> STOP [T= InitialiseSignals(Test) 
 
 
 -- InitialiseSpurMonitors = ||| s <- SignalID @ InitialiseAll--InitialiseSpurMonitor(SigM.s)
 -- InitialiseSpurSignals(threads) = 
---   threads [|union(events, stateChannels)|] (State ||| InitialiseSpurMonitors)
+--   threads [|union(events, allStateChannels)|] (States ||| InitialiseSpurMonitors)
 
 
 -- Spec version of signal
@@ -117,7 +124,7 @@ SpecSignals = || s <- SignalID @ [{|callSignalUpAndWait.s, callWaitForSignalUp.s
 InitialiseSpecSignals(threads) = 
   (SpecSignals [|union(signalChannels, waitChannels)|] threads) \ waitChannels
 
-SingleSignal(t, s) = InitialiseSignals(t) \ diff({|callSignalUpAndWait, callWaitForSignalUp, 
+SingleSignal(ts, s) = InitialiseSignal(s, ts) \ diff({|callSignalUpAndWait, callWaitForSignalUp, 
                                     callSignalDown|}, {|callSignalUpAndWait.s, callWaitForSignalUp.s, 
                                     callSignalDown.s|}
                                     )

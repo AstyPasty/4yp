@@ -1,7 +1,7 @@
 \subsection{The SCL Monitor}
 
 
-There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify| calls. Spurious wakeups are obviously bad and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in \ref{code::slot}. Suppose we have significantly more threads wanting to |get| a value than |put| a value. Each |notifyAll| will awake each thread waiting on a |get|, even if |get|s are blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; as a result repeated |notify|s could potentially just wake up two thread alternatively, both of which are waiting to perform the same process.
+There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify| calls. Spurious wakeups are obviously bad and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in Listing \ref{code::slot}. Suppose we have significantly more threads wanting to |get| a value than |put| a value. Each |notifyAll| will awake every thread waiting on a |get|, even if |get|s are blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; as a result repeated |notify|s could potentially just wake up two thread alternatively, both of which are waiting to perform the same process.
 
 % \begin{lstlisting}[language=Scala, label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
 \begin{scala}[label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
@@ -25,10 +25,17 @@ There are two main limitations to the standard JVM monitor: it suffers from spur
   }
 \end{scala}
 
-The SCL monitor implementation solves both of these issues with a single monitor offering multiple distinct |Conditions| to allow for more targeted signalling. 
-If we have two conditions, we can separate the threads attempting to |get| and those trying to |put| and have those wait on separate conditions. We can then modify the program above to only perform a single |signal| (the SCL monitor equivalent of |notify| for the JVM monitor) towards the threads that are attempting to perform the opposing function, resulting in significant efficiency gains as no threads need to immediately sleep after being woken up.
+The SCL monitor implementation solves both of these issues with a single monitor offering multiple distinct |Conditions| to allow for more targeted signalling. It is worth noting that these improvements result in the SCL monitor being more computationally expensive per call\framebox{Improve sentence}. Each individual condition offers the following operations:
+\begin{itemize}
+  \item |await()| is used to wait for a signal on the condition
+  \item |signal()| is used to signal to a thread waiting on the condition
+  \item |signalAll()| is used to signal to all the threasd waiting on the condition
+\end{itemize}
+Each of these operations should be performed while holding the lock. We can note that these operations are similar to the JVM monitor |wait()|, |notify()| and |notifyAll()| respectively. This functionality is also similar to the |java.util.concurrent.locks.Condition| class; the primary difference is that the SCL monitor blocks spurious wakeups whereas they are allowing by the JAVA class.
 
-The implementation of the SCL Monitor, available on \href{https://github.com/GavinLowe1967/Scala-Concurrency-Library/blob/main/src/Lock/Lock.scala}{GitHub}, makes use of the Java |LockSupport| package. Here we present a low-level model of an SCL Condition which makes use of a model of the |LockSupport| class.
+Considering the single-placed buffer, we can use two conditions to separate the threads attempting to |get| and those trying to |put|. We can then modify the program above to only perform a single |signal| towards the threads that are attempting to perform the opposing function, resulting in significant efficiency gains as no threads need to immediately sleep after being woken up.
+
+The implementation of the SCL Monitor, available on GitHub\footnote{\url{https://github.com/GavinLowe1967/Scala-Concurrency-Library/blob/main/src/Lock/Lock.scala}}, makes use of the Java |LockSupport| class; we explore this in the next section\framebox{Sub?}. Here we present a low-level model of an SCL Condition which makes use of a model of the |LockSupport| class.
 
 \subsection{LockSupport}
 

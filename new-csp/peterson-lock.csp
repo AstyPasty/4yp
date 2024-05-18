@@ -87,28 +87,28 @@ FCFSActualSystemR = ActualSystemR [[set.I.2.T.0.False <- doorwayComplete.L.0.T.0
 FCFSActualSystemRExtDiv = FCFSActualSystemR \ InternalChannels
 
 -- Works for 2 threads
-FCFS({}, {}, TS)     = callLock.L.0?t -> FCFS({t}, {}, TS)
-                       [] end?t:TS -> FCFS({}, {}, diff(TS, {t}))
-FCFS({t}, {}, TS)    = callLock.L.0?t2:diff(TS, {t}) -> 
-                            FCFS(union({t}, {t2}), {}, TS)
-                       [] doorwayComplete.L.0.t -> FCFS({}, {t}, TS)
-                       [] end?t2:diff(TS, {t}) -> FCFS({t}, {}, diff(TS,{t2}))
-FCFS(ts, {}, TS)     = doorwayComplete.L.0?t:ts -> 
+FCFS'({}, {}, TS)     = callLock.L.0?t -> FCFS'({t}, {}, TS)
+                       [] end?t:TS -> FCFS'({}, {}, diff(TS, {t}))
+FCFS'({t}, {}, TS)    = callLock.L.0?t2:diff(TS, {t}) -> 
+                            FCFS'(union({t}, {t2}), {}, TS)
+                       [] doorwayComplete.L.0.t -> FCFS'({}, {t}, TS)
+                       [] end?t2:diff(TS, {t}) -> FCFS'({t}, {}, diff(TS,{t2}))
+FCFS'(ts, {}, TS)     = doorwayComplete.L.0?t:ts -> 
                          (doorwayComplete.L.0?t2:diff(ts, {t}) -> 
                             lockAcquired.L.0?t3:ts -> 
-                              FCFS({}, diff(ts, {t3}), TS)
-                          [] lockAcquired.L.0.t -> FCFS(diff(ts, {t}), {}, TS))
-FCFS({}, {t}, TS)    = lockAcquired.L.0.t -> FCFS({}, {}, TS)
+                              FCFS'({}, diff(ts, {t3}), TS)
+                          [] lockAcquired.L.0.t -> FCFS'(diff(ts, {t}), {}, TS))
+FCFS'({}, {t}, TS)    = lockAcquired.L.0.t -> FCFS'({}, {}, TS)
                        [] callLock.L.0?t2:diff(TS, {t}) -> 
-                            (lockAcquired.L.0.t -> FCFS({t2}, {}, TS) 
+                            (lockAcquired.L.0.t -> FCFS'({t2}, {}, TS) 
                              [] doorwayComplete.L.0.t2 -> 
-                                  lockAcquired.L.0.t -> FCFS({}, {t2}, TS))
-                       [] end?t2:diff(TS, {t}) -> FCFS({}, {t}, diff(TS, {t2}))
-FCFS({t1}, {t2}, TS) = lockAcquired.L.0.t2 -> FCFS({t1}, {}, TS)
+                                  lockAcquired.L.0.t -> FCFS'({}, {t2}, TS))
+                       [] end?t2:diff(TS, {t}) -> FCFS'({}, {t}, diff(TS, {t2}))
+FCFS'({t1}, {t2}, TS) = lockAcquired.L.0.t2 -> FCFS'({t1}, {}, TS)
                        [] doorwayComplete.L.0.t1 -> lockAcquired.L.0.t2 
-                                                 -> FCFS({}, {t1}, TS) 
+                                                 -> FCFS'({}, {t1}, TS) 
 
-assert FCFS({}, {}, ThreadID) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}
+assert FCFS'({}, {}, ThreadID) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}
 
 --B = buchi(StarvationFree(T.0), accept)
 --StarvationFree(t) = accept -> StarvationFree(t)
@@ -136,3 +136,28 @@ assert ActualSystemRB \ {wait}:[divergence free]
 assert ActualSystemRBT :[divergence free]
 assert ActualSystemRBT \ {waitT.T.1}:[divergence free]
 assert ActualSystemRBT \ {waitT.T.0}:[divergence free]
+
+
+FCFS(l, t, start, doorway) = 
+     end.t -> FCFS3(l, t)
+  [] callLock.l.t -> FCFS1(l, t, start, doorway, {})
+  [] doorwayComplete.l?t':diff(ThreadID, union(doorway, {t})) -> FCFS(l, t, start, union(doorway, {t'}))
+  [] lockAcquired.l?t':diff(ThreadID, {t}) -> FCFS(l, t, start, diff(doorway, {t'}))
+FCFS1(l, t, start, doorway, next) = 
+     doorwayComplete.l.t -> FCFS2(l, t, doorway, next)
+  [] doorwayComplete.l?t':diff(ThreadID, {t}) -> FCFS1(l, t, doorway, union(next, {t'}))
+  [] lockAcquired.l?t':diff(ThreadID, {t}) -> FCFS1(l, t, diff(doorway, {t'}), next)
+FCFS2(l, t, start, doorway, next) = 
+     doorwayComplete.l?t':diff(ThreadID, Union({{t}, doorway, next})) -> FCFS1(l, t, doorway, union(next, {t'}))
+  [] (empty(doorway)) & lockAcquired.l.t -> FCFS(l, t, next)
+  [] lockAcquired.l?t':doorway -> FCFS1(l, t, diff(doorway, {t'}), diff(next, {t'}))
+
+FCFS3(l, t) = 
+     doorwayComplete.l?t':diff(ThreadID, {t}) -> FCFS3(l, t)
+  [] lockAcquired.l?t':diff(ThreadID, {t}) -> FCFS3(l, t)
+
+FCFSCheck(l) = 
+  || t <- ThreadID @ [union({callLock.l.t, end.t}, {|doorwayComplete.l, lockAcquired.l|})]
+        FCFS(l, t, {})
+
+assert FCFSCheck(L.0) [F= FCFSActualSystemRExtDiv \ {|lockReleased|}

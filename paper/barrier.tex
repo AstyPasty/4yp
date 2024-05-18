@@ -1,11 +1,12 @@
+\newpage
 \section{Barrier synchronisation}
 \inlineScala
 
-A barrier synchronisation object is used to synchronise some number of threads. This allows for a program with threads working on some shared memory which all threads can update to use a number of rounds of synchronisation in order to ensure thread-safety. Programs which use global synchronisation typically operate by instantiating some barrier object and then having each thread call |sync| on the barrier once they have completed their current round. Each call to |sync| only returns after all threads have called |sync|, synchronising all the threads at that point in time and allowing the threads to proceed afterwards \cite{CP}.
+A \emph{barrier synchronisation} object is used to synchronise some number of threads. This allows for a program with threads working on some shared memory which all threads can update to use a number of rounds of synchronisation in order to ensure thread-safety. Programs which use \emph{global synchronisations} (synchronising all threads) typically operate by instantiating some barrier object and then having each thread call |sync| on the barrier once they have completed their current round. Each call to |sync| only returns after all threads have called |sync|, synchronising all the threads at that point in time and allowing the threads to proceed afterwards \cite{CP}.
 
-Here we model and analyse an |n| thread barrier synchronisation object, internally using a binary heap of |n| two-thread signalling objects.
+Here we model and analyse an |n| thread barrier synchronisation object which internally uses a binary heap of |n| two-thread signalling objects.
 
-\subsection{The Signal object}
+\subsection{The signalling object}
 
 We first consider the signalling object |Signal|. This is used to synchronise between a `parent' and `child' thread, providing three external methods:
 
@@ -15,93 +16,112 @@ We first consider the signalling object |Signal|. This is used to synchronise be
   \item |signalDown| is used to indicate to the child that the synchronisation has completed.
 \end{itemize}
 
-Internally, the |Signal| object makes use of a private Boolean variable |state| with |true| indicating that a child is waiting and |false| otherwise. The use of this variable is protected by a monitor. The Scala code for the |Signal| object can be found in figure \ref{fig:Signal}.
+Internally, the |Signal| object makes use of a private Boolean variable |state| with |true| indicating that a child is waiting and |false| otherwise. The use of this variable is protected by a monitor. The Scala code for the |Signal| object can be found in figure \ref{scala:Signal}.
+\newpage 
+\begin{scala}[label=scala:Signal, caption={The Scala code for the {\scalastyle Signal} object}]
+private class Signal{
+  /** The state of this object.  true represents that the child has signalled,
+    * but not yet received a signal back. */
+  private var state = false
 
-\begin{figure}[H]
-  \begin{scala}
-  /** An object for signalling between a child and its parent in the heap. */
-  private class Signal{
-    /** The state of this object.  true represents that the child has signalled,
-      * but not yet received a signal back. */
-    private var state = false
-
-    /** Signal to the parent, and wait for a signal back. */
-    def signalUpAndWait = synchronized{
-      require(!state, 
-        "Illegal state of Barrier: this might mean that it is\n"+
-        "being used by two threads with the same identity.");
-      state = true; notify()
-      while(state) wait()
-    }
-
-    /** Wait for a signal from the child. */
-    def waitForSignalUp = synchronized{ while(!state) wait() }
-
-    /** Signal to the child. */
-    def signalDown = synchronized{ state = false; notify() }
+  /** Signal to the parent, and wait for a signal back. */
+  def signalUpAndWait = synchronized{
+    require(!state, 
+      "Illegal state of Barrier: this might mean that it is\n"+
+      "being used by two threads with the same identity.");
+    state = true; notify()
+    while(state) wait()
   }
-  \end{scala}
-  \caption{The Scala code for the {\scalastyle Signal} object}
-  \label{fig:Signal}
-\end{figure}
 
-The |signalUpAndWait| function first asserts that there currently is no other child waiting for the parent to complete a |signalDown|; this ensures that we do not have more than one child using the same |Signal| object. It then sets |state| to |true|, indicating that the child is now waiting and it notifies any potentially waiting parents that the child is now syncing. It then forces the child thread to wait until the parent sets |state| to |false| and notifies the child; the use of the |while| loop here is to guard against spurious wakeups.
+  /** Wait for a signal from the child. */
+  def waitForSignalUp = synchronized{ while(!state) wait() }
 
-|waitForSignalUp| is used by a parent to wait for the child node to perform a |signalUpAndWait| and notify the parent; the |while| loop is again used to guard against spurious wakeups.
+  /** Signal to the child. */
+  def signalDown = synchronized{ state = false; notify() }
+}
+\end{scala}
+%   \caption{The Scala code for the  object}
+%   \label{listing:Signal}
+% \end{figure}
+
+The |signalUpAndWait| function first asserts that there currently is no other child waiting for the parent to complete a |signalDown|; this ensures that we do not have more than one child using the same |Signal| object. It then sets |state| to |true|, indicating that the child is now waiting and it notifies the parent, awaking them if they are waiting. It then forces the child thread to wait until the parent sets |state| to |false| and notifies the child; the use of the |while| loop here is to guard against spurious wakeups.
+
+|waitForSignalUp| is used by a parent to wait for the child node to perform a |signalUpAndWait| and notify the parent; the |while| loop again guards against spurious wakeups.
 
 The |signalDown| function is used to signal to the child that the synchronisation has been completed and that the child can return from its |signalUpAndWait| call.
 
 \subsubsection{Modelling the Signal objects}
 
-Now we have a model for monitors we can progress onto modelling the |Signal| object. In each case the calling |Proc| will first run the procedure |Func| which communicates the function and the |SignalID| that has been called by a given |ThreadID|. This will then run |Func2| within a |Synchronized| block as outlined above. \newpage
+We use our model for a JVM monitor from \framebox{REF} in our modelling of the |Signal| object. 
+\framebox{Wording} An interacting thread will run the CSP process of the equivalent Scala function, here referred to as |Func|. In each case these first communicates a |callFunc| before running the |syncFunc| process within a |Synchronized| block as outlined previously in section \framebox{REF} \ref{listing::JVMMonitorInterface}.
+%In each case the calling |Proc| will first run the procedure |Func| which communicates the function and the |SignalID| that has been called by a given |ThreadID|. 
 
-\begin{cspm}
-  SignalUpAndWait :: (SignalID, ThreadID) -> Proc
-  SignalUpAndWait(s, t) = 
-    callSignalUpAndWait.s.t -> Synchronized(SigM.s, t, syncSignalUpAndWait(s, t))
-  syncSignalUpAndWait(s, t) = 
-    getState.s.t?val -> if val == true then DIV -- Required to be false
-                        else setState.s.t.true -> 
-                            Notify(SigM.s, t); SignalWaitingForFalse(s, t)
+\framebox{From signal-scala.csp}
+ \begin{cspm}[caption={The state variable(s) and the function call channels}]
+channel getState, setState : SignalID . ThreadID . Bool
+stateChannels(s) = {|getState.s, setState.s|}
+
+State :: (SignalID) -> Proc
+State(s) = Var(false, getState.s, setState.s)
+
+channel callSignalUpAndWait, callWaitForSignalUp, callSignalDown : SignalID . ThreadID
+signalChannels = {|callSignalUpAndWait, callWaitForSignalUp, callSignalDown|}
+ \end{cspm}
+
+ We first initialise the |state| variable, with the |SignalID| parameter in the channels indicating the |Signal| object the variable corresponds to. We also introduce the function call channels as indicated above.
+
+\begin{cspm}[caption={The CSP model of the {\scalastyle signalUpAndWait} function of the {\scalastyle Signal} object}]
+SignalUpAndWait :: (SignalID, ThreadID) -> Proc
+SignalUpAndWait(s, t) = 
+  callSignalUpAndWait.s.t -> Synchronized(SigM.s, t, syncSignalUpAndWait(s, t))
+syncSignalUpAndWait(s, t) = 
+  getState.s.t?val -> if val == true then DIV -- Required to be false
+                      else setState.s.t.true -> 
+                          Notify(SigM.s, t); SignalWaitingForFalse(s, t)
 
 
-  SignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
-  SignalWaitingForFalse(s, t) = 
-    getState.s.t?val -> if val == false then SKIP
-                        else Wait(SigM.s, t); SignalWaitingForFalse(s, t)
-                             
+SignalWaitingForFalse :: (SignalID, ThreadID) -> Proc
+SignalWaitingForFalse(s, t) = 
+  getState.s.t?val -> if val == false then SKIP
+                      else Wait(SigM.s, t); SignalWaitingForFalse(s, t)                            
 \end{cspm}
 
 This models entering a \inlineScala \CSPM{synchronized} block and checks that \CSPM{state} is not true, diverging if so. This divergence is used to model a failed assertion; the rest of the code is a more direct translation.
 
-\begin{cspm}
-  WaitForSignalUp :: (SignalID, ThreadID) -> Proc  
-  WaitForSignalUp(s, t) = 
-    callWaitForSignalUp.s.t -> Synchronized(SigM.s, t, syncWaitForSignalUp(s, t))        
-  syncWaitForSignalUp(s, t) = 
-    getState.s.t?val -> if val == true then  SKIP 
-                        else Wait(SigM.s, t); syncWaitForSignalUp(s, t)
+\begin{cspm}[caption={The CSP model of the {\scalastyle waitForSignalUp} function of the {\scalastyle Signal} object}]
+WaitForSignalUp :: (SignalID, ThreadID) -> Proc  
+WaitForSignalUp(s, t) = 
+  callWaitForSignalUp.s.t -> Synchronized(SigM.s, t, syncWaitForSignalUp(s, t))        
+syncWaitForSignalUp(s, t) = 
+  getState.s.t?val -> if val == true then  SKIP 
+                      else Wait(SigM.s, t); syncWaitForSignalUp(s, t)
 \end{cspm}
 
 Again this is a fairly natural model of the Scala code presented earlier; we communicate that thread |t| has called |waitForSignalUp| on Signal object |s|, enter a synchronized block and then simulate the \inlineScala|while| \inlineCSP loop used to guard against spurious wakeups.
 
-\begin{cspm}
-  SignalDown :: (SignalID, ThreadID) -> Proc
-  SignalDown(s, t) = callSignalDown.s.t -> Synchronized(SigM.s, t, syncSignalDown(s, t))
-  syncSignalDown(s, t) = setState.s.t.false -> Notify(SigM.s, t); SKIP
+\begin{cspm}[caption={The CSP model of the {\scalastyle signalDown} function of the {\scalastyle Signal} object}]
+SignalDown :: (SignalID, ThreadID) -> Proc
+SignalDown(s, t) = callSignalDown.s.t -> Synchronized(SigM.s, t, syncSignalDown(s, t))
+syncSignalDown(s, t) = setState.s.t.false -> Notify(SigM.s, t); SKIP
 \end{cspm}
 
 |SignalDown| is the most simple function of the three to model; it obtains the monitor's lock, sets the |state| variable to false and then notifies the child that the synchronisation has completed.
 
-\begin{cspm}
-  signalChannels = {|callSignalUpAndWait, callWaitForSignalUp, callSignalDown|}
-  
-  InitialiseSignals(threads) = 
-    (threads [|union(Monitors::events, stateChannels)|] 
-      (State ||| InitialiseAlls)) \ union(stateChannels, Monitors::events)
+\begin{cspm}[caption={The initialisation of the {\scalastyle Signal} objects, }]
+InitialiseSignal(sig, threads) = 
+  runWith(SigM.sig, threads [|stateChannels(sig)|] State(sig)) 
+      \ union(stateChannels(sig), events)
+
+allStateChannels(sigs) = {|getState.s, setState.s | s <- sigs|}
+States(sigs) = ||| s <- sigs @ State(s)
+monitors(sigs) = {SigM.s | s <- sigs}
+
+InitialiseSignals(sigs, threads) = 
+  runWithMultiple(monitors(sigs), threads [|allStateChannels(sigs)|] States(sigs))  
+      \ union(allStateChannels(sigs), events)
 \end{cspm}
 
-We finally define a process |InitialiseSignals|. This is used to synchronise the threads with the interleaving of the state variables and the monitors and then hiding the internal behaviour of the |Signal| objects.
+We finally define processes |InitialiseSignal| and |InitialiseSignals| to initialise a single signal and multiple signals respectively. This is used to synchronise the threads with the interleaving of the state variables and the monitors and then hiding the internal behaviour of the |Signal| objects. |runWith| and |runWithMultiple| are both used to initialise the monitors for each of the |Signal| objects that are being modelled, ensuring mutual exclusion between threads on each of the |Signal| objects.
 
 % The |Signal| process is simply the process representing the state variable, with channels |getState.s| and |setState.s|
 
@@ -109,49 +129,50 @@ We finally define a process |InitialiseSignals|. This is used to synchronise the
 \inlineScala
 When initialised, the |Barrier(n: Int)| object creates an array of |n| |Signal| objects, with these organised in the structure of a heap. As per the trait of a barrier synchronisation, |Barrier| only provides a single function |sync(me)| which takes the thread's identity as an input:
 
-\begin{scala}
-  /** Perform a barrier synchronisation.
-    * @param me the unique identity of this thread. */
-  def sync(me: Int) = {
-    require(0 <= me && me < n, 
-      s"Illegal parameter $me for sync: should be in the range [0..$n).")
-    val child1 = 2*me+1; val child2 = 2*me+2
-    // Wait for children
-    if(child1 < n) signals(child1).waitForSignalUp
-    if(child2 < n) signals(child2).waitForSignalUp
-    // Signal to parent and wait for signal back
-    if(me != 0) signals(me).signalUpAndWait
-    // Signal to children
-    if(child1 < n) signals(child1).signalDown
-    if(child2 < n) signals(child2).signalDown
-  }  
+\begin{scala}[caption={The Scala definition of the {\scalastyle Barrier.sync} function}]
+/** Perform a barrier synchronisation.
+  * @param me the unique identity of this thread. */
+def sync(me: Int) = {
+  require(0 <= me && me < n, 
+    s"Illegal parameter $me for sync: should be in the range [0..$n).")
+  val child1 = 2*me+1; val child2 = 2*me+2
+  // Wait for children
+  if(child1 < n) signals(child1).waitForSignalUp
+  if(child2 < n) signals(child2).waitForSignalUp
+  // Signal to parent and wait for signal back
+  if(me != 0) signals(me).signalUpAndWait
+  // Signal to children
+  if(child1 < n) signals(child1).signalDown
+  if(child2 < n) signals(child2).signalDown
+}  
 \end{scala}
 
 This checks that the thread's identity is such that |signals(me)| does not cause an 
-|ArrayIndexOutOfBoundsException|. It then waits for the thread's children (if they exist) to signal that they are ready to synchronise, before signalling to its parent that all of its descendants are ready to synchronise. Once the parent signals back that the synchronisation has occurred the thread notfies its children that the synchronisation has completed befoe returning. The exception to this is thread |0|, which has no parent to signal to and all of its descendants are ready to synchronise, hence thread |0| reaching line 11 of its execution can be taken as the linearization point of when the barrier synchronisation occurs.
+|ArrayIndexOutOfBoundsException|. It then waits for the thread's children (if they exist) to signal that they are ready to synchronise, before signalling to its parent that all of its children are ready to synchronise. Once the parent signals back that the synchronisation has occurred the thread notfies its children that the synchronisation has completed befoe returning. The exception to this is thread |0|, which has no parent to signal to. Thread |0| reaching line 11 of its |sync(0)| call can therefore be taken as the linearization point of the barrier synchronisation.
+%and all of its descendants are ready to synchronise, hence thread |0| reaching line 11 of its execution can be taken as the linearization point of when the barrier synchronisation occurs.
 
 \subsubsection{Modelling the Barrier object}
 \inlineCSP
-\begin{cspm}
-  Thread(T.me) = beginSync.T.me -> Sync(T.me) |~| end.T.me -> SKIP
-  Sync(T.me) = 
-    let child1 = 2*me+1 
-        child2 = 2*me+2
-    within 
-        (if (child1 < n) then WaitForSignalUp(S.(child1), T.me) else SKIP);
-        (if (child2 < n) then WaitForSignalUp(S.(child2), T.me) else SKIP);
-        (if me != 0 then SignalUpAndWait(S.me, T.me) else SKIP);
-        (if (child1 < n) then SignalDown(S.(child1), T.me) else SKIP);
-        (if (child2 < n) then SignalDown(S.(child2), T.me) else SKIP);
-        endSync.T.me -> Thread(T.me)
+\begin{cspm}[caption={The CSP model of a thread interacting with the {\scalastyle Barrier} object}]
+Thread(T.me) = beginSync.T.me -> Sync(T.me) |~| end.T.me -> SKIP
 
+Sync(T.me) = 
+  let child1 = 2*me+1 
+      child2 = 2*me+2
+  within 
+      (if (child1 < n) then WaitForSignalUp(S.(child1), T.me) else SKIP);
+      (if (child2 < n) then WaitForSignalUp(S.(child2), T.me) else SKIP);
+      (if (me != 0) then SignalUpAndWait(S.me, T.me) else SKIP);
+      (if (child1 < n) then SignalDown(S.(child1), T.me) else SKIP);
+      (if (child2 < n) then SignalDown(S.(child2), T.me) else SKIP);
+      endSync.T.me -> Thread(T.me)
 
-  Threads = ||| t : ThreadID @ Thread(t)
+Threads = ||| t : ThreadID @ Thread(t)
 
-  BarrierSystem = InitialiseSignals(Threads)
+BarrierSystem = InitialiseSignals(Threads)
 \end{cspm}
 
-We recall from earlier that |datatype ThreadID = T.{0..n-1}|. The process |Thread(T.me)| models the individual behaviour of a specific thread with identity |T.me :: ThreadID|, with each thread nondeterministically choosing to eithe communicate an |end.T.me| and terminate or to call the CSP model of \scalastyle{sync(me)}. In the latter case, a communication of |beginSync.T.me| is used to indicate the start of the synchronisation. The |Sync(T.me)| definition is very straightforward, with it mostly following directly from the Scala definition; the only further change is that |Sync(T.me)| communicates a |endSync.T.me| event just before it terminates.
+We recall from earlier that |datatype ThreadID = T.{0..n-1}| and |datatype SignalID = S.{0..n-1}|. The process |Thread(T.me)| models the individual behaviour of a specific thread with identity |T.me :: ThreadID|, with each thread nondeterministically choosing to either communicate an |end.T.me| and terminate or to call the CSP model of |sync(me)|. In the latter case, a communication of |beginSync.T.me| is used to indicate the start of the synchronisation. The |Sync(T.me)| definition is very straightforward, with it mostly following directly from the Scala definition; the only further change is that |Sync(T.me)| communicates a |endSync.T.me| event just before it terminates.
 
 The |thread| processes are then interleaved together to yield |Threads|. We then initialise the system with |Signal| objects that can nondeterministically allow or block spurious wakeups to give |BarrierSystem|. We hide all events of the signal object, so the only visible channels of |BarrierSystem| are |{|beginSync, endSync, spuriousWakeup, end|}|.
 
@@ -161,73 +182,74 @@ We will show that the barrier synchronisation is correct; here correct requires 
 
 Correctly linearised in this context means that the barrier synchronisation can be considered to occur at some point between when all |n| threads have communicated |beginSync| and when the first thread communicates an |endSync| event. The requirement that a linearisation must occur means that if all |n| threads communicate a |beginSync| then none of the threads can be blocked from communicating their respective |endSync|.
 
-\begin{cspm}
-  Lineariser(t) = beginSync.t -> sync -> endSync.t -> Lineariser(t)
-                |~| end.t -> STOP
-  Spec = ( || t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}] 
-               Lineariser(t)) \ {sync}
+\begin{cspm}[caption={The lineariser specification for barrier synchronisations}]
+Lineariser(t) = beginSync.t -> sync -> endSync.t -> Lineariser(t)
+              |~| end.t -> STOP
+Spec = ( || t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}] 
+              Lineariser(t)) \ {sync}
 \end{cspm}
 
-|Lineariser(t)| allows any thread to |beginSync.t| followed by an |endSync.t|, representing the call and return of \scalastyle{barrier.sync()}. The |sync| event can be considered to be the point at which the barrier synchronisation occurs since all threads must synchronise on this, fulfilling the requirement above. Additionally, each thread can terminate via |end.t|, indicating that it will perform no further synchronisations. This blocks all other threads from completing a barrier synchronisation, which is the intended behaviour.
+|Lineariser(t)| allows any thread to |beginSync.t| followed by an |endSync.t|, representing the call and return of |barrier.sync()|. The |sync| event can be considered to be the point at which the barrier synchronisation occurs since all threads must synchronise on this, fulfilling the requirement above. Additionally, each thread can terminate via |end.t|, indicating that it will perform no further synchronisations. This blocks all other threads from completing a barrier synchronisation, which is the intended behaviour.
 
-We first note that |BarrierSystem| is divergence-free, but \CSPM{BarrierSystem \\ \{|spuriousWakeup|\}} is not. |BarrierSystem| with spurious wakeups visisble being divergence-free is relevant as this means that we never breach the assertion in the \scalastyle{SignalUpAndWait} function; this therefore means hiding the |spuriousWakeup| events must be the cause of the divergences\framebox{check that isn't an internal divergence caused by hiding spuriousWakeup}. This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. Similarly to before this is not a particular cause for concern; in practice spurious wakups occur infrequently within the JVM.
+We first note that |BarrierSystem| is divergence-free, but |BarrierSystem \ {|spuriousWakeup|}| is not. |BarrierSystem| with spurious wakeups visisble being divergence-free is relevant as this means that we never breach the assertion in the |SignalUpAndWait| function; this therefore means hiding the |spuriousWakeup| events must be the cause of the divergences\framebox{check that isn't an internal divergence caused by hiding spuriousWakeup}. This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. Similarly to before this is not a particular cause for concern; in practice spurious wakeups occur infrequently within the JVM.
 
 We first consider the traces model, where we have that the following holds:
 \begin{cspm}
-  assert Spec [T= BarrierSystem \ {|spuriousWakeup|}
+assert Spec [T= BarrierSystem \ {|spuriousWakeup|}
 \end{cspm}
 This means that |BarrierSystem| fulfils the requirements fulfilled by |Spec| i.e.~that it can be linearised and that the synchronisation between all |n| threads occurs correctly (if indeed it does occur).
 
-Since |Spec| also cannot diverge we will also consider refinement under the stable failures model for both systems. This ensures that if a synchronisation can occur then it must occur and all threads communicating |callSync| can return if all |n| threads communicate a |callSync|.
+Since |Spec| cannot diverge we will also consider refinement under the stable failures model This ensures that if a synchronisation can occur then it must occur and all threads communicating |callSync| can return if all |n| threads communicate a |callSync|.
 %Using the stable failures model is valid as we only care about the behaviour of the |BarrierSpurSystem| in its stable states (i.e.~where the |Reg| process nondeterministically blocks |spuriousWakeup| events); it could perform an indefinite number of successive |spuriousWakeup| events, but this is an issue with the underlying JVM and not our barrier synchronisation object. 
-We note that using the stable failures model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to a hidden |spuriousWakeup| there exists a corresponding state where the regulator process |Reg| blocks the spurious wakeup and is therefore stable. FDR yields that both the following hold for systems of upto 6 threads in \framebox{Time value}:
+We note that using the stable failures model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to a hidden |spuriousWakeup| there exists a corresponding stable state where the regulator process |Reg| blocks the spurious wakeup. FDR yields that both the following hold for systems of upto 6 threads in \framebox{Time value}: 1277 seconds
 
 \begin{cspm}
-  assert Spec [F= BarrierSystem \ {|spuriousWakeup|}
+assert Spec [F= BarrierSystem \ {|spuriousWakeup|}
 \end{cspm}
 
-As a result, we have that the \scalastyle{Barrier} object presented earlier is linerais a correct barrier synchronisation object for all $n$ upto and including 6.
+As a result, we have that the |Barrier| object presented earlier is a correct implementation of barrier synchronisation for $n$ upto 6.\framebox{confidence arg here?}
 
 \subsection{Specification processes for the Signal objects}
-
-Our current model of |Signal| models the internal workings of the object, modelling the \scalastyle{synchronized} blocks and the internal \scalastyle{state} variable. Though this is a faithful recreation, this is a rather complex model and leads to  the number of states that FDR must generate being exponential in the number of threads, resulting in us only being able to test refinement on a system of size 6 in reasonable time. We can instead construct a specification process which models the use of the |Signal| object. Though this will still result in an exponential model, the model will be of significantly smaller size allowing us to model the |Barrier| object for larger numbers of threads in the same approximate time.
+\framebox{Check}
+Our current model of |Signal| models the internal workings of the object, modelling the |synchronized| blocks and the internal |state| variable. Though this is a faithful recreation, this is a rather complex model and leads to significant state space explosion, resulting in us only being able to test for correctness on models with upto 6 threads.
+%the number of states that FDR generate being exponential in the number of threads, resulting in us only being able to test refinement on a system of size 6 in reasonable time. 
+We can instead construct a specification process which models the use of the |Signal| object. Though this still results in a model size exponential in the number of threads, the model will be of significantly smaller size allowing us to model the |Barrier| object for larger numbers of threads in the same approximate time.
 
 By inspecting the usage of |Signal| we observe that there are two synchronisations between threads performed by each |Signal| object \framebox{Diagram}
-
+\inlineScala
 \begin{itemize}
-  \item \scalastyle{waitForSignalUp} and \scalastyle{signalUpAndWait} synchronise to indicate that that all threads using objects in this subtree are waiting to synchronise. This synchronisation has the parent waiting on the child to signal, with the child being allowed to signal and progress immediately
-  \item \scalastyle{signalDown} and \scalastyle{signalUpAndWait} synchronise, with the parent signalling to the child that the barrier synchronisation has occurred and that \scalastyle{signalUpAndWait} can return. This synchronisation has the child thread waiting on the parent signalling down to it; the child thread is always waiting first as the child starts waiting on this synchronisation immediately after the previous synchronisation occurs.
+  \item |waitForSignalUp| and |signalUpAndWait| synchronise to indicate that that all threads using objects in this subtree are waiting to synchronise. This synchronisation has the parent waiting on the child to signal, with the child being allowed to signal and progress immediately
+  \item |signalDown| and |signalUpAndWait| synchronise, with the parent signalling to the child that the barrier synchronisation has occurred and that |signalUpAndWait| can return. This synchronisation has the child thread waiting on the parent signalling down to it; the child thread is always waiting first as the child starts waiting on this synchronisation immediately after the previous synchronisation occurs.
 \end{itemize}
-
+\inlineCSP
 We can model this simplified |Signal| object via the following CSP:
 
-\begin{figure}[H]
-  \begin{cspm}
-  channel endWaitForSignalUp, endSignalUpAndWait : SignalID . ThreadID
+  \begin{cspm}[caption={The CSP model of the specification {\scalastyle Signal} object}]
+channel endWaitForSignalUp, endSignalUpAndWait : SignalID . ThreadID
+waitChannels = {|endWaitForSignalUp, endSignalUpAndWait|}
 
-  -- Simplified spec for a correctly used Signal object
-  SpecSig(s) = 
-      callSignalUpAndWait.s?t -> callWaitForSignalUp.s?t2 -> SpecSig2(s, t, t2)
-    [] callWaitForSignalUp.s?t2 -> callSignalUpAndWait.s?t -> SpecSig2(s, t, t2)
-  SpecSig2(s, t, t2) = 
-    endWaitForSignalUp.s.t2 -> callSignalDown.s.t2 -> endSignalUpAndWait.s.t -> SpecSig(s)
+-- Simplified spec for a correctly used Signal object
+SpecSig(s) = 
+    callSignalUpAndWait.s?t -> callWaitForSignalUp.s?t2 -> SpecSig2(s, t, t2)
+  [] callWaitForSignalUp.s?t2 -> callSignalUpAndWait.s?t -> SpecSig2(s, t, t2)
+SpecSig2(s, t, t2) = 
+  endWaitForSignalUp.s.t2 -> callSignalDown.s.t2 -> endSignalUpAndWait.s.t -> SpecSig(s)
 
-  -- The individual functions for the Signal object
-  SpecSignalUpAndWait(s, t) = callSignalUpAndWait.s.t -> endSignalUpAndWait.s.t -> SKIP
-  SpecWaitForSignalUp(s, t) = callWaitForSignalUp.s.t -> endWaitForSignalUp.s.t -> SKIP
-  SpecSignalDown(s, t) = callSignalDown.s.t -> SKIP
+-- The individual functions for the Signal object
+SpecSignalUpAndWait(s, t) = callSignalUpAndWait.s.t -> endSignalUpAndWait.s.t -> SKIP
+SpecWaitForSignalUp(s, t) = callWaitForSignalUp.s.t -> endWaitForSignalUp.s.t -> SKIP
+SpecSignalDown(s, t) = callSignalDown.s.t -> SKIP
 
-  -- Construct the system for each of the SpecSig objects
-  SpecSignals = 
-    || s <- SignalID @ [{|callSignalUpAndWait.s, callWaitForSignalUp.s, 
-                          callSignalDown.s, endWaitForSignalUp.s, endSignalUpAndWait.s|}] 
-                       SpecSig(s)
+-- Construct the system for each of the SpecSig objects
+SpecSignals = 
+  || s <- SignalID @ [{|callSignalUpAndWait.s, callWaitForSignalUp.s, 
+                        callSignalDown.s, endWaitForSignalUp.s, endSignalUpAndWait.s|}] 
+                      SpecSig(s)
 
-  -- Method for barrier-sync to initialise the two objects
-  InitialiseSpecSignals(threads) = 
-    (SpecSignals [|union(signalChannels, waitChannels)|] threads) \ waitChannels                     
-  \end{cspm}  
-\end{figure}
+-- Method for barrier-sync to initialise the two objects
+InitialiseSpecSignals(threads) = 
+  (SpecSignals [|union(signalChannels, waitChannels)|] threads) \ waitChannels                     
+  \end{cspm} 
 
 We introduce channels |endWaitForSignalUp| and |endSignalUpAndWait| to represent the synchronisations between the child and parent, with each of the channels indicating that their respective functions are able to return. |SpecSig(s)| is used to dictate the order that communications are allowed to occur:
 
@@ -244,25 +266,25 @@ Finally for the |Signal| specifications, we let |SpecSignals| be the alphabetise
 
 \framebox{Stuff about how the initial implementation of Signal fulfils this specification}
 
-\begin{cspm}
-  -- sThread is the same as Thread but uses the spec Signal
-  sThread(T.me) = beginSync.T.me -> sSync(T.me) |~| end.T.me -> SKIP
-  sSync(T.me) = 
-    let child1 = 2*me+1 
-        child2 = 2*me+2
-    within (if (child1 < n) then SpecWaitForSignalUp(S.(child1), T.me) else SKIP);
-          (if (child2 < n) then SpecWaitForSignalUp(S.(child2), T.me) else SKIP);
-          (if me != 0 then SpecSignalUpAndWait(S.me, T.me) else SKIP);
-          (if (child1 < n) then SpecSignalDown(S.(child1), T.me) else SKIP);
-          (if (child2 < n) then SpecSignalDown(S.(child2), T.me)else SKIP);
-          endSync.T.me -> sThread(T.me)
+\begin{cspm}[caption={The implementation of the {\scalastyle Barrier} based on }]
+-- sThread is the same as Thread but uses the spec Signal
+sThread(T.me) = beginSync.T.me -> sSync(T.me) |~| end.T.me -> SKIP
+sSync(T.me) = 
+  let child1 = 2*me+1 
+      child2 = 2*me+2
+  within (if (child1 < n) then SpecWaitForSignalUp(S.(child1), T.me) else SKIP);
+        (if (child2 < n) then SpecWaitForSignalUp(S.(child2), T.me) else SKIP);
+        (if me != 0 then SpecSignalUpAndWait(S.me, T.me) else SKIP);
+        (if (child1 < n) then SpecSignalDown(S.(child1), T.me) else SKIP);
+        (if (child2 < n) then SpecSignalDown(S.(child2), T.me)else SKIP);
+        endSync.T.me -> sThread(T.me)
 
-  -- Initialise the simple system
-  sThreads = ||| t : ThreadID @ sThread(t)     
-  sBarrierSystem = InitialiseSpecSignals(sThreads)
+-- Initialise the simple system
+sThreads = ||| t : ThreadID @ sThread(t)     
+sBarrierSystem = InitialiseSpecSignals(sThreads)
 
-  -- Spec failure-divergences refines it as expected
-  assert Spec [FD= sBarrierSystem
+-- Spec failure-divergences refines it as expected
+assert Spec [FD= sBarrierSystem
 \end{cspm}
 
 Since the simplified |Signal| object does not use monitors we have that the system should be divergence-free. This is verififed by FDR as the above refinement holds against our (divergence-free) linearization checker.

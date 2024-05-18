@@ -1,4 +1,4 @@
-n = 1
+n = 4
 datatype ThreadID = T.{0..n-1}
 --s = S.{0..n-1}
 -- datatype ObjectID = S.{0..n-1} | O.{3}
@@ -59,7 +59,8 @@ Sync(T.me) =
 
 
 Threads = ||| t : ThreadID @ Thread(t)
-BarrierSystem = InitialiseSignals(Threads) \ signalChannels
+BarrierSystem = InitialiseSignals(SignalID, Threads) \ signalChannels
+--BarrierSystem = (||| s : SignalID @ InitialiseSignal(s, Threads)) \ signalChannels
 
 --NewBarrierSystem = NewInitialiseSignals(Threads)
 
@@ -76,6 +77,9 @@ BarrierSystem = InitialiseSignals(Threads) \ signalChannels
 --assert BarrierSystemExt [|{|spuriousWakeup|}|] spuriousWakeup?_ ->  DIV :[divergence free]
 --assert BarrierSystemSpurExt :[divergence free]--[|{|spuriousWakeup|}|] spuriousWakeup?_ -> spuriousWakeup?_ -> DIV 
 --assert not BarrierSystemSpurExt \ {|spuriousWakeup|} :[divergence free]
+
+assert BarrierSystem :[divergence free]
+assert not (BarrierSystem \ {|spuriousWakeup|}) :[divergence free]
 
 -- Correctness check for synchronisation happening after all beginSyncs 
 -- and before all endSyncs

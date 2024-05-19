@@ -1,7 +1,7 @@
-\subsection{The SCL Monitor}
+\subsection{The SCL monitor}\label{section:SCLMonitor}
 \inlineCSP
 
-There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify| calls. Spurious wakeups are obviously bad and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in Listing \ref{code::slot}. Suppose we have significantly more threads wanting to |get| a value than |put| a value. Each |notifyAll| will awake every thread waiting on a |get|, even if |get|s are blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; as a result repeated |notify|s could potentially just wake up two thread alternatively, both of which are waiting to perform the same process.
+There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify| calls. Spurious wakeups are obviously undesirable and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in Listing \ref{code::slot}. Suppose we have significantly more threads wanting to |get| a value than |put| a value. Each |notifyAll| will awake every thread waiting on a |get|, even if |get|s are blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; as a result repeated |notify|s could potentially just wake up two thread alternatively, both of which are waiting to perform the same process.
 
 % \begin{lstlisting}[language=Scala, label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
 \begin{scala}[label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
@@ -25,7 +25,7 @@ There are two main limitations to the standard JVM monitor: it suffers from spur
   }
 \end{scala}
 
-The SCL monitor implementation solves both of these issues with a single monitor offering multiple distinct |Conditions| to allow for more targeted signalling. It is worth noting that these improvements result in the SCL monitor being more computationally expensive per call\framebox{Improve sentence}. Each individual condition offers the following operations:
+The SCL monitor implementation solves both of these issues with a single monitor offering multiple distinct |Conditions| to allow for more targeted signalling. It is worth noting that these improvements result in the SCL monitor being more computationally expensive than the JVM Monitor. Each individual condition offers the following operations:
 \begin{itemize}
   \item |await()| is used to wait for a signal on the condition
   \item |signal()| is used to signal to a thread waiting on the condition
@@ -35,7 +35,7 @@ Each of these operations should be performed while holding the lock. We can note
 
 Considering the single-placed buffer, we can use two conditions to separate the threads attempting to |get| and those trying to |put|. We can then modify the program above to only perform a single |signal| towards the threads that are attempting to perform the opposing function, resulting in significant efficiency gains as no threads need to immediately sleep after being woken up.
 
-The implementation of the SCL Monitor \cite{GitHub}, makes use of the Java |LockSupport| class; we explore this in the next section\framebox{Sub?}. Here we present a low-level model of an SCL Condition which makes use of a model of the |LockSupport| class.
+The implementation of the SCL Monitor \cite{GitHub}, makes use of the Java |LockSupport| class; we explore the implementations of these in the next section and present CSP models. \framebox{Wording} 
 
 \subsubsection{The SCL monitor implementation}
 
@@ -114,7 +114,7 @@ We now consider our model of the SCL monitor. This consists of three main compon
 
 \paragraph{LockSupport}\label{section:LockSupport}
 
-The Java |LockSupport| \framebox{REF} class offers two main operations: |park| and |unpark|, which are used to suspend and resume a thread respectively. A thread |t| typically calls |LockSupport.park()| to suspend itself until a permit becomes available by another thread calling |LockSupport.unpark(t)|. As this is a permit-based system, a permit is stored if a thread calls |unpark(t)| and |t| is not yet parked. This allows |t| to immediately resume when it does call |park|.
+The Java |LockSupport| \cite{LockSupport} class offers two main operations: |park| and |unpark|, which are used to suspend and resume a thread respectively. A thread |t| typically calls |LockSupport.park()| to suspend itself until a permit becomes available by another thread calling |LockSupport.unpark(t)|. As this is a permit-based system, a permit is stored if a thread calls |unpark(t)| and |t| is not yet parked. This allows |t| to immediately resume when it does call |park|.
 It is also important to note that |LockSupport| is also affected by spurious wakeups where some parked thread can resume without an |unpark|. 
 %We will therefore use the channel |spurious| to indicate that a spurious wakeup has occured; this will allow us to check that.
 
@@ -309,7 +309,7 @@ exports
 
 In the definitions above, |SyncSet| contains every event that we need to synchronise on between a series of threads and the monitor. We then hide all events except for those representing a thread acquiring and releasing the lock; this is the contents of |HideSet|.
 
-We now consider the functions offered by the monitor. We have the interface given below, with each of the five processes corresponding to the function of the same name. Each process starts with a communication on the correspondingly named |callX| channel to indicate that the specified thread has just called that function; this makes examining any traces produced significantly simpler. We will refer to these |callX| communications as `external' and all other channels as being `internal'. \framebox{Better convention for placeholder values?}
+We now consider the operations offered by the monitor. We have the interface given below, with each of the five operations corresponding to the function of the same name. Each process starts with a communication on the correspondingly named |callX| channel to indicate that the specified thread has just called that function; this makes examining any traces produced significantly simpler. We will refer to these |callX| communications as `external' and all other channels as being `internal'. \framebox{Better convention for placeholder values?}
   
 \begin{cspm}
 export 
@@ -522,11 +522,11 @@ For further performance improvements, we can also remove the node allocator proc
   channel await, signalAll: MonitorID.ConditionID.ThreadID
 \end{cspm}
 
-All the definitions remain the same apart from removing any |nodeThread| and |releaseNode| communications and the required type changes\framebox{put raw code in an appendix?}. We keep |initialiseNode| to so that a thread can use it to indicate it is initialising a `new' |ThreadInfo| object and hence to reset the |ready| value to false. We also change |InitialiseMon| and |InitialiseMonDet| to remove the |NodeAllocator|; each of the individual |ThreadInfo| processes are still interleaved as before. We will refer to this as the `optimised' version.
+All the definitions remain the same apart from removing any |nodeThread| and |releaseNode| communications and the required type changes. We keep |initialiseNode| to so that a thread can use it to indicate it is initialising a `new' |ThreadInfo| object and hence to reset the |ready| value to false. We also change |InitialiseMon| and |InitialiseMonDet| to remove the |NodeAllocator|; each of the individual |ThreadInfo| processes are still interleaved as before. We will refer to this as the `optimised' version.
 
-We first need to check that this simplified model remains correct. To complete this, we repeat the same refinement checks as before. These still all pass, indicating that the monitor model with a modified queue fulfills the specification similarly\framebox{wording} to the natural queue model.
+We first need to check that this simplified model remains correct. The refinement checks still all pass, indicating that the monitor model with a modified queue fulfills the specification similarly\framebox{wording} to the natural queue model.
 
-We next verify that the efficiency improvements occurs in practice too. We do this by running the FDR verification of |assert SpecSCL [F= SCLSystem| for a range of numbers of threads and conditions. We then compare the number of states generated by the natural queue model against the more efficient queues, with the results visible in table \ref{table:queue}.
+We next verify that the efficiency improvements occurs in practice too. We do this by running the FDR verification of |assert SpecSCL [F= SCLSystem| for a range of numbers of threads and conditions. We then compare the number of states generated by the different queue models, with the results presented in table \ref{table:queue}.
 
 \def\thickhline{\noalign{\hrule height 1.5pt}}
 
@@ -556,7 +556,7 @@ We next verify that the efficiency improvements occurs in practice too. We do th
     \label{table:queue}
   \end{table}
 
-  Here we see that the restricted model with each thread allocated a single node to use results in a state space reduced by a factor of at least $n!$ where $n$ is the number of threads. This is as expected due to the reduction in the mappings from threads to nodes as stated above. Though the state space clearly still grows exponentially with the simplified queues, it is significantly more efficient and makes refinement checks for larger numbers of threads and conditions significantly more feasible.
+  Here we see that the restricted model with each thread allocated a single node to use results in a state space reduced by a factor of at least $n!$ where $n$ is the number of threads. This is as expected due to the reduction in the mappings from threads to nodes as stated above. Though the state space still grows exponentially with the simplified queues, it is exponentially more efficient and makes refinement checks for larger numbers of threads and conditions significantly more feasible.
   
   % If we consider the 
   
@@ -565,7 +565,7 @@ We next verify that the efficiency improvements occurs in practice too. We do th
 
   
 
-  \framebox{Introduce efficient spec version of SCL monitor and compare performance?}.
+  % \framebox{Introduce efficient spec version of SCL monitor and compare performance?}.
 
 
 

@@ -191,7 +191,9 @@ Spec = ( || t <- ThreadID @ [{beginSync.t, sync, endSync.t, end.t}]
 
 |Lineariser(t)| allows any thread to |beginSync.t| followed by an |endSync.t|, representing the call and return of |barrier.sync()|. The |sync| event can be considered to be the point at which the barrier synchronisation occurs since all threads must synchronise on this, fulfilling the requirement above. Additionally, each thread can terminate via |end.t|, indicating that it will perform no further synchronisations. This blocks all other threads from completing a barrier synchronisation, which is the intended behaviour.
 
-We first note that |BarrierSystem| is divergence-free, but |BarrierSystem \ {|spuriousWakeup|}| is not. |BarrierSystem| with spurious wakeups visisble being divergence-free is relevant as this means that we never breach the assertion in the |SignalUpAndWait| function; this therefore means hiding the |spuriousWakeup| events must be the cause of the divergences\framebox{check that isn't an internal divergence caused by hiding spuriousWakeup}. This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. Similarly to before this is not a particular cause for concern; in practice spurious wakeups occur infrequently within the JVM.
+We first note that |BarrierSystem| is divergence-free, but |BarrierSystem \ {|spuriousWakeup|}| is not. |BarrierSystem| with spurious wakeups visisble being divergence-free is relevant as this means that we never breach the assertion in the |SignalUpAndWait| function and that no internal divergence can be caused by a finite number of spurious wakeups. This therefore means hiding the |spuriousWakeup| events must be the cause of the divergences.
+%\framebox{check that isn't an internal divergence caused by hiding spuriousWakeup}. 
+This is expected behaviour as one thread could spuriously wakeup, check the test condition and wait again before spuriously waking up like this indefinitely. Similarly to before this is not a particular cause for concern; in practice spurious wakeups occur infrequently within the JVM.
 
 We first consider the traces model, where we have that the following holds:
 \begin{cspm}
@@ -205,17 +207,17 @@ Since |Spec| cannot diverge we will also consider refinement under the stable fa
 
 % We note that using the stable failures model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to a hidden |spuriousWakeup| there exists a corresponding stable state where the regulator process |Reg| blocks the spurious wakeup. 
 Similarly to \ref{section:SCLMonitor-Correctness} we will check refinement under the stable-failures model even though the model can diverge. This is valid as for every state that could be unstable due to a hidden |spuriousWakeup| there exists a correspondign stable state where the regulator process |Reg| blocks the spurious wakeup.
-FDR yields that both the following hold for systems of upto 6 threads in \framebox{Time value}: 1277 seconds
+FDR yields that both the following hold for systems of upto 6 threads; this can be verified in 1280 seconds.
 
 \begin{cspm}
 assert Spec [F= BarrierSystem \ {|spuriousWakeup|}
 \end{cspm}
 
-As a result, we have that the |Barrier| object presented earlier is a correct implementation of barrier synchronisation for $n$ upto 6.\framebox{confidence arg here?}
+As a result, we have that the |Barrier| object presented earlier is a correct implementation of barrier synchronisation for $n$ upto 6. This gives us significant confidence that the system is corect.
 
 \subsection{Specification processes for the Signal objects}
-\framebox{Check}
-Our current model of |Signal| models the internal workings of the object, modelling the |synchronized| blocks and the internal |state| variable. Though this is a faithful recreation, this is a rather complex model and leads to significant state space explosion, resulting in us only being able to test for correctness on models with upto 6 threads.
+
+Our current model of |Signal| models the internal workings of the object, modelling the |synchronized| blocks and the internal |state| variable. As this is a faithful recreation it is also rather complex; we can only test for correctness on models with upto 6 threads in reasonable time.
 %the number of states that FDR generate being exponential in the number of threads, resulting in us only being able to test refinement on a system of size 6 in reasonable time. 
 We can instead construct a specification process which models the use of the |Signal| object. Though this still results in a model size exponential in the number of threads, the model will be of significantly smaller size allowing us to model the |Barrier| object for larger numbers of threads in the same approximate time.
 
@@ -268,7 +270,7 @@ We also define the specification versions of the three external methods offered 
 
 Finally for the |Signal| specifications, we let |SpecSignals| be the alphabetised parallel composition of each of the |SpecSig(s)| processes, with the parallel composition forcing each specification object to only synchronise on events with the matching |SignalID|. The individual threads and the overall system are defined similaly to the above, with the exception that all calls are to the specification processes and not the originals.
 
-\framebox{Stuff about how the initial implementation of Signal fulfils this specification}
+\framebox{Stuff about how the initial implementation of Signal fulfils this specification?}
 
 \begin{cspm}[caption={The implementation of the {\scalastyle Barrier} based on }]
 -- sThread is the same as Thread but uses the spec Signal
@@ -294,9 +296,9 @@ assert Spec [FD= sBarrierSystem
 Since the simplified |Signal| object does not use monitors we have that the system should be divergence-free. This is verififed by FDR as the above refinement holds against our (divergence-free) linearization checker.
 
 
-\framebox{Proper performance comparison Simplified can run 10 threads in about the same time}
+\framebox{Proper performance comparison Simplified can run 10 threads in about the same time?}
 
-\framebox{the normal version can run 6}
+%\framebox{the normal version can run 6}
 
 
 

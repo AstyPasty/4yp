@@ -27,8 +27,7 @@ Internally, the model uses one lock per |MonitorID|. These also have an addition
 
 Our model of the monitor provides the following exports:
 
-\begin{figure}[H]
-\begin{cspm}
+\begin{cspm}[caption={The interface of the JVMMonitor module; changes are underlined}, label={listing::JVMMonitorInterface}]
 module JVMMonitor"(MonitorID)"
     ...
     Reg = CHAOS({|spuriousWakeup|})
@@ -73,9 +72,8 @@ exports
 
 endmodule
 \end{cspm}
-\caption{The interface of the JVMMonitor module; changes are underlined}
-\label{listing::JVMMonitorInterface}
-\end{figure}
+
+
 
 Each monitor provides |Wait(obj, t)|, |Notify(obj, t)| and |Synchronized(o, t, Proc)| methods to model the equivalent functions/blocks in SCL. The |Proc| parameter is used to specify the process that will be run inside the |Synchronized| block; the intended usage of this is of the form |callFunc.o.t -> Synchronized(o, t, syncFunc)| where the process communicates that it is calling the model of fucntion |Func| before completing the rest of the function whilst holding the monitor lock. |runWith(obj, threads)| and |runWithMultiple(objs, threads)| are used to initalise a single monitor with identity |obj| or multiple monitors with identities |objs| respectively to synchronise threads that interact with a single object and multiple objects respectively.
 

@@ -353,11 +353,11 @@ Await2(mon, cnd, t, n) =
 
 
 
-\subsubsection{Correctness}
+\subsubsection{Correctness}\label{section:SCLMonitor-Correctness}
 
 We now consider the correctness of our model. We present a specification process for a idealised monitor with conditions and perform refinement checks against it. We show that the ordering of |await|s is also upheld by a separate refinement check.
   
-We will first consider the specification process of a monitor with multiple conditions. Each  monitor process is parameterised over the identity of the monitor and a map of |ConditionID => {ThreadID}| representing the set of threads waiting on each |Condition|. We choose to use sets of waiting threads instead of queues of waiting threads to make this a more general specification of a monitor; we consider orderings in a later test. This also is significantly more efficient; it significantly reduces the number of states of the specification process\framebox{Explanation}. |initSet| is the initial mapping of the waiting threads, with each condition mapping to an empty set. We define |valuesSet| as a helper function which returns a set of all the threads that are currently waiting on any condition; this allows us to restrict the specification to only allow threads that aren't waiting to obtain the lock. 
+We will first consider the specification process of a monitor with multiple conditions. Each monitor process is parameterised over the identity of the monitor and a map of |ConditionID => {ThreadID}| representing the set of threads waiting on each |Condition|. We choose to use sets of waiting threads instead of queues of waiting threads to make this a more general specification of a monitor and it is also more efficient. We consider orderings in a later test. |initSet| is the initial mapping of the waiting threads, with each condition mapping to an empty set. We define |valuesSet| as a helper function which returns a set of all the threads that are currently waiting on any condition; this allows us to restrict the specification to only allow threads that aren't waiting to obtain the lock. 
 
 \begin{cspm}
 initSet = mapFromList(<(c, {}) | c <- seq(ConditionID)>)
@@ -447,7 +447,9 @@ assert not SCLSystem :[divergence free]
 
 We have that both the assertions pass: |SCLSystemSpur| is divergence free, but hiding the |spurious| channel introduces divergences. Since the system is divergence-free with the |spurious| channel visible, we can conclude that spurious wake-ups don't lead to a state where the system can diverge without more spurious wake-ups. We can therefore conclude that the divergences of the system with |spurious| hidden are only due to repeated spurious wakeups
 
-Similarly to \framebox{ref}, we have that this divergence is not a major concern since it relies on infrequent spurious wakeups occuring. We also note that, similarly to before in \framebox{ref to previous chapter}, we have that each of these states where a divergence can occur has a corresponding stable state, hence it is valid for us to check refinement under stable-failures in this case.
+% Similarly to \framebox{ref}, we have that this divergence is not a major concern since it relies on infrequent spurious wakeups occuring. We also note that, similarly to before in \framebox{ref to previous chapter}, we have that each of these states where a divergence can occur has a corresponding stable state, hence it is valid for us to check refinement under stable-failures in this case.
+
+We note that using the stable failures-model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to repeated hidden spurious wakeups there exists a corresponding stable state where the non-deterministic choice in the |LockSupport| model blocks the |spurious| event. 
 
 \begin{cspm}
   assert SpecSCL [F= (SCLSystem) 

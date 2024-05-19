@@ -199,9 +199,13 @@ assert Spec [T= BarrierSystem \ {|spuriousWakeup|}
 \end{cspm}
 This means that |BarrierSystem| fulfils the requirements fulfilled by |Spec| i.e.~that it can be linearised and that the synchronisation between all |n| threads occurs correctly (if indeed it does occur).
 
-Since |Spec| cannot diverge we will also consider refinement under the stable failures model This ensures that if a synchronisation can occur then it must occur and all threads communicating |callSync| can return if all |n| threads communicate a |callSync|.
+Since |Spec| cannot diverge we will also consider refinement under the stable failures model. This ensures that if a synchronisation can occur then it must occur and that all threads can then return.
 %Using the stable failures model is valid as we only care about the behaviour of the |BarrierSpurSystem| in its stable states (i.e.~where the |Reg| process nondeterministically blocks |spuriousWakeup| events); it could perform an indefinite number of successive |spuriousWakeup| events, but this is an issue with the underlying JVM and not our barrier synchronisation object. 
-We note that using the stable failures model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to a hidden |spuriousWakeup| there exists a corresponding stable state where the regulator process |Reg| blocks the spurious wakeup. FDR yields that both the following hold for systems of upto 6 threads in \framebox{Time value}: 1277 seconds
+
+
+% We note that using the stable failures model is normally inappropriate for a system that can diverge. However, this is valid here as for any state that could be unstable due to a hidden |spuriousWakeup| there exists a corresponding stable state where the regulator process |Reg| blocks the spurious wakeup. 
+Similarly to \ref{section:SCLMonitor-Correctness} we will check refinement under the stable-failures model even though the model can diverge. This is valid as for every state that could be unstable due to a hidden |spuriousWakeup| there exists a correspondign stable state where the regulator process |Reg| blocks the spurious wakeup.
+FDR yields that both the following hold for systems of upto 6 threads in \framebox{Time value}: 1277 seconds
 
 \begin{cspm}
 assert Spec [F= BarrierSystem \ {|spuriousWakeup|}

@@ -1,3 +1,7 @@
-set(x) = {y | y <- Int, y <= x, y % 2 == 1, y >= 0}
-assert (true == true)
-assert member(0, set(20)) == true
+
+channel in, out 
+
+testThread(t) = in -> out -> testThread(t)
+queue :: (<Proc>) -> Proc
+queue(<>) = DIV
+queue(<t>^ts) = t [] STOP

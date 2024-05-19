@@ -1,0 +1,26 @@
+FCFSNotStarted(l, t, s1, s3) = 
+     end.t -> FCFSTerminated(l, t)
+  [] callLock.l.t -> FCFSStarted(l, t, s1, s3)
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSNotStarted(l, t, union(s1, {t'}), s3)
+  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSNotStarted(l, t, diff(s1, {t'}), s3)
+
+
+FCFSStarted(l, t, s1, s3) = 
+     doorwayComplete.l.t -> FCFSCompleted(l, t, s1, s3)
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSStarted(l, t, s1, union(s3, {t'}))
+  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSStarted(l, t, diff(s1, {t'}), diff(s3, {t'}))
+
+FCFSCompleted(l, t, s1, s3) = 
+     empty(s1) & lockAcquired.l.t -> FCFSNotStarted(l, t, s3, {})
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSCompleted(l, t, s1, union(s3, {t'}))
+  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSCompleted(l, t, diff(s1, {t'}), diff(s3, {t'}))
+
+FCFSTerminated(l, t) = 
+     doorwayComplete.l?t':diff(ThreadID, {t}) -> FCFSTerminated(l, t)
+  [] lockAcquired.l?t':diff(ThreadID, {t}) -> FCFSTerminated(l, t)
+
+FCFSCheck(l) = 
+  || t <- ThreadID @ [union({callLock.l.t, end.t}, {|doorwayComplete.l, lockAcquired.l|})]
+        FCFSNotStarted(l, t, {}, {})
+
+assert FCFSCheck(L.0) [T= FCFSActualSystemRExtDiv \ {|lockReleased|}

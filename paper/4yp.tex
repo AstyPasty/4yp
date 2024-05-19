@@ -91,7 +91,14 @@
  moredelim=**[is][\color{red}]{-}{-}
 }
 
+\usepackage{titlesec}
 
+\setcounter{secnumdepth}{4}
+
+\titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
 
 \addbibresource{references.bib}
 
@@ -104,6 +111,9 @@
 %\renewcommand{\submittedtext}{Submitted in partial completion of }
 %\degree{Part B of the Final Honour Schools of Computer Science}
 %\degreedate{Trinity 2023}
+
+%TC:envir cspm [] ignore
+%TC:envir scala [] ignore
 
 
 \begin{document}
@@ -118,15 +128,15 @@
   \item Lineariser spelling??
 \end{itemize}
 
- %\input{intro.tex}
- %\input{lit.tex}
- %\input{locks}
- %\input{starve.tex}
+ \input{intro.tex}
+ \input{lit.tex}
+ \input{locks}
+
  \input{monitor.tex}
  \input{SCLMonitor.tex}
- %\input{barrier.tex}
+ \input{barrier.tex}
  
- %\input{eval.tex}
+ \input{eval.tex}
 
   %\begin{enumerate}
   %  \item \textbf{Action on Objectives:} The attacker now begins to achieve their initial objectives making use of the system access they have achieved. These objectives can include anything from data exfiltration to ransomware attacks to damage to physical systems.

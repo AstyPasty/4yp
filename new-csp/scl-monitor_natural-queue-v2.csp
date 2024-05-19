@@ -30,7 +30,7 @@ SignalAll1(mon, cnd, t) =
           Unpark(t, t2); SignalAll1(mon, cnd, t)
 
 Await1(mon, cnd, t) = 
-  initialiseNode?n!t -> enqueue.mon.cnd.t.n -> release.mon.t -> Await2(mon, cnd, t, n)
+  initialiseNode?n!t -> enqueue.mon.cnd.t.(ThreadInfo(n)) -> release.mon.t -> Await2(mon, cnd, t, n)
 
 Await2(mon, cnd, t, n) = 
   isReady.n.t.t?b -> if b then releaseNode.n.t -> acquire.mon.t -> SKIP

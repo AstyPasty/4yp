@@ -1,35 +1,36 @@
 -- LockSupport
 
 channel park: ThreadID
-channel wakeUp: ThreadID.Bool
+channel wakeUp: ThreadID
 channel unpark: ThreadID.ThreadID
+
 
 
 LockSupport1(waiting, permits) =
   park?t-> (
     if member(t, permits)
-      then wakeUp.t.true -> LockSupport(waiting, diff(permits, {t}))
+      then wakeUp.t -> LockSupport(waiting, diff(permits, {t}))
     else LockSupport(union(waiting, {t}), permits) )
   []
   unpark?t?t2-> ( 
     if member(t2, waiting)
-      then wakeUp.t2.true -> LockSupport(diff(waiting, {t2}), permits)
+      then wakeUp.t2 -> LockSupport(diff(waiting, {t2}), permits)
     else LockSupport(waiting, union(permits, {t2})))
 LockSupport(waiting, permits) =
   if waiting == {} then LockSupport1(waiting, permits)
   else (LockSupport1(waiting, permits)
-        |~| wakeUp$t:waiting!false -> LockSupport(diff(waiting, {t}), permits) )
+        |~| spurious -> wakeUp$t:waiting -> LockSupport(diff(waiting, {t}), permits) )
 
 
 LockSupportDet1(waiting, permits) =
   park?t-> (
     if member(t, permits)
-      then wakeUp.t.true -> LockSupportDet(waiting, diff(permits, {t}))
+      then wakeUp.t -> LockSupportDet(waiting, diff(permits, {t}))
     else LockSupportDet(union(waiting, {t}), permits) )
   []
   unpark?t?t2-> ( 
     if member(t2, waiting)
-      then wakeUp.t2.true -> LockSupportDet(diff(waiting, {t2}), permits)
+      then wakeUp.t2 -> LockSupportDet(diff(waiting, {t2}), permits)
     else LockSupportDet(waiting, union(permits, {t2})))
 LockSupportDet(waiting, permits) = LockSupportDet1(waiting, permits)
 
@@ -37,6 +38,8 @@ InitLockSupport = LockSupport({}, {})
 
 InitLockSupportDet = LockSupportDet({}, {})
 
-Park(t) = park.t -> wakeUp.t?_ ->  SKIP
+Park(t) = park.t -> wakeUp.t ->  SKIP
 
 Unpark(t, t') = unpark.t.t' -> SKIP
+
+--channel spurious

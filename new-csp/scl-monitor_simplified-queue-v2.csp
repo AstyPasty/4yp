@@ -136,10 +136,16 @@ HideSet(m, setC) =
 
 exports
 
+channel spurious
+
 channel acquire, release: MonitorID.ThreadID
 channel callAcquire, callRelease: MonitorID.ThreadID
 channel callAwait, callSignalAll: MonitorID.ConditionID.ThreadID
 channel callSignal: MonitorID.ConditionID.ThreadID
+
+CallChans(m, setC) = 
+  {|callSignal.m.c, callAwait.m.c, callSignalAll.m.c, callAcquire.m, 
+    callRelease.m | c <- setC|}
 
 -- The set of externally visible events
 External(m, setC) = 

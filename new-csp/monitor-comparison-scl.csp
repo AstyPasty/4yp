@@ -1,4 +1,4 @@
-n = 5
+n = 4
 datatype ThreadID = T.{0..n-1}
 datatype SignalID = S.{0}--..n-1}
 datatype MonitorID = SigM.SignalID
@@ -93,6 +93,7 @@ initSet = mapFromList(<(c, {}) | c <- seq(ConditionID)>)
 values(map) = Union({mapLookup(map, cnd) | cnd <- ConditionID})
 channel callSignalSpec: MonitorID.ConditionID.ThreadID.ThreadID
 
+
 SpecUnlocked(m, waiting, poss) =
      SCL::callAcquire.m?t':diff(ThreadID, union(values(waiting), poss)) ->
        SpecUnlocked(m, waiting, union(poss,{t'}))
@@ -140,10 +141,52 @@ SpecLockedReleasing(m, t, waiting, poss) =
                                 Union({values(waiting), poss, {t}})) ->
        SpecLockedReleasing(m, t, waiting, union(poss, {t'}))
 
+
+
+
+
+
+Spec2Unlocked(m, waiting) = 
+  SCL::acquire.m?t:diff(ThreadID, values(waiting)) -> Spec2Locked(m, t, waiting)
+
+Spec2Locked(m, t, waiting) =
+  [] c': ConditionID @  
+      (   
+          (mapLookup(waiting, c') == {}) & SCL::callSignal.m.c'.t ->
+             Spec2Locked(m, t, waiting)
+       [] (mapLookup(waiting, c') != {}) & 
+            |~| t': mapLookup(waiting, c') @ SCL::callSignal.m.c'.t -> 
+                Spec2Locked(m, t, 
+                            mapUpdate(waiting, c', diff(mapLookup(waiting, c'), {t'})))            
+      )
+  [] SCL::callSignalAll.m?c:ConditionID!t -> 
+            Spec2Locked(m, t, mapUpdate(waiting, c, {}))
+  [] SCL::callRelease.m.t -> SCL::release.m.t ->
+        Spec2Unlocked(m, waiting)
+  [] SCL::callAwait.m?c:ConditionID!t -> SCL::release.m.t ->
+        Spec2Unlocked(m, mapUpdate(waiting, c, union(mapLookup(waiting, c), {t})))
+
+
 SpecSCL = (let m = SigM.S.0 within 
             (SpecUnlocked(m, initSet, {}) 
               [[callSignalSpec.m.c.t.t' <- SCL::callSignal.m.c.t 
                   | c <- ConditionID, t <- ThreadID, t' <- ThreadID]]))
+
+Spec2Thread(t, m) = SCL::callAcquire.m.t -> SCL::acquire.m.t -> Spec2Thread2(t, m)
+Spec2Thread2(t, m) = 
+     SCL::callAwait.m?c.t -> SCL::release.m.t -> SCL::acquire.m.t -> Spec2Thread2(t, m)
+  [] SCL::callRelease.m.t -> SCL::release.m.t -> Spec2Thread(t, m)
+  [] SCL::callSignalAll.m?c.t -> Spec2Thread2(t, m)
+  [] SCL::callSignal.m?c.t -> Spec2Thread2(t, m)
+
+SpecChans(m, setC) = 
+  {|SCL::callSignal.m.c, SCL::callAwait.m.c, SCL::callSignalAll.m.c, SCL::acquire.m, SCL::callRelease.m,
+    SCL::release.m | c <- setC|}
+  --{|SCL::callSignal.m.c, SCL::callAwait.m.c, SCL::callSignalAll.m.c, SCL::acquire.m, SCL::callRelease.m| c <- setC|}
+
+Spec2SCL = (let m = SigM.S.0 within 
+            (Spec2Unlocked(m, initSet) [|SpecChans(m, ConditionID)|]
+                (||| t <- ThreadID @ (Spec2Thread(t, m)))))
 
 
 valuesSeq(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
@@ -173,12 +216,15 @@ OrderCheck(m, waiting) =
 -- this is expected as our specification does not diverge; could 
 -- non-deterministically add divergences whenever a thread is waiting
 
-assert not SCLSystem :[divergence free]
-assert SCLSystemDet :[divergence free]
+assert not SCLSystem \ {SCL::spurious} :[divergence free]
+assert SCLSystem :[divergence free]
 
 
 assert (SpecSCL) [T= (SCLSystem)
-assert SpecSCL [F= (SCLSystem)  :[symmetry reduce]: ThreadID --[[SCL::callSignalSpec.m.c.t.t <- SCL::callSignal.m.c.t | m <- MonitorID, c <- ConditionID, t <- ThreadID, t' <- ThreadID]])
+assert SpecSCL [F= (SCLSystem)  --[[SCL::callSignalSpec.m.c.t.t <- SCL::callSignal.m.c.t | m <- MonitorID, c <- ConditionID, t <- ThreadID, t' <- ThreadID]])
+
+assert Spec2SCL  [F= (SCLSystem) \ {SCL::spurious}
+
 
 assert SpecSCL [F= (OrderCheck(SigM.S.0, initSeq) 
                      [|{|SCL::callAwait.SigM.S.0,
@@ -186,9 +232,9 @@ assert SpecSCL [F= (OrderCheck(SigM.S.0, initSeq)
                          SCL::callSignal.SigM.S.0,
                          SCL::callSignalAll.SigM.S.0|}|] SCLSystem)
 
-assert SpecSCL [T= SCLSystemDet 
-assert SpecSCL [F= SCLSystemDet 
-assert SpecSCL [FD= SCLSystemDet 
+assert Spec2SCL [T= SCLSystem \ {SCL::spurious}
+assert Spec2SCL [F= SCLSystem \ {SCL::spurious}
+--assert Spec2SCL ||| CHAOS({SCL::spurious}) [FD= SCLSystem
 
 
 -- Thread''(t) = SCL::callAcquire.monC.t -> SCL::acquire.monC.t -> Thread1''(t)

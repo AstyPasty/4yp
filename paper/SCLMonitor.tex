@@ -1,10 +1,10 @@
 \subsection{The SCL monitor}\label{section:SCLMonitor}
 \inlineCSP
 
-There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify| calls. Spurious wakeups are obviously undesirable and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in Listing \ref{code::slot}. Suppose we have significantly more threads wanting to |get| a value than |put| a value. Each |notifyAll| will awake every thread waiting on a |get|, even if |get|s are blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; as a result repeated |notify|s could potentially just wake up two thread alternatively, both of which are waiting to perform the same process.
+There are two main limitations to the standard JVM monitor: it suffers from spurious wakeups and does not allow targeting of |notify()| calls. Spurious wakeups are obviously undesirable and are a common source of bugs where not adequately protected against. Targeting of signals can also be very beneficial to the performance of a program; take for example the one-place buffer shown below in Listing \ref{code::slot}. Suppose we have significantly more threads wanting to |get()| a value than |put| a value. Each |notifyAll| will awake every thread waiting on a |get()|, even if |get()| is blocked by |! available|. This results in the majority of the threads immediately sleeping again, adding significant overhead. A |notifyAll| is also required since the JVM monitor makes no guarantees as to which thread is awoke by a |notify|; a thread notifying another thread waiting on the same function would cause a deadlock.
 
 % \begin{lstlisting}[language=Scala, label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
-\begin{scala}[label=code::slot, caption={Single placed buffer as an example of the inefficiency of untargeted signals}]
+\begin{scala}[label=code::slot, caption={A single place buffer as an example of the inefficiency of untargeted signals}]
   class OneBuff[T] {
     private var buff = null.asInstanceOf[T]
     private var available = false
@@ -25,23 +25,23 @@ There are two main limitations to the standard JVM monitor: it suffers from spur
   }
 \end{scala}
 
-The SCL monitor implementation solves both of these issues with a single monitor offering multiple distinct |Conditions| to allow for more targeted signalling. It is worth noting that these improvements result in the SCL monitor being more computationally expensive than the JVM Monitor. Each individual condition offers the following operations:
+The SCL monitor implementation solves both of these issues with a single monitor offering  distinct |Condition|s to allow for more targeted signalling. It is worth noting that these improvements result in the SCL monitor being more computationally expensive than the JVM Monitor. Each individual |Condition| offers the following operations:
 \begin{itemize}
   \item |await()| is used to wait for a signal on the condition
   \item |signal()| is used to signal to a thread waiting on the condition
-  \item |signalAll()| is used to signal to all the threasd waiting on the condition
+  \item |signalAll()| is used to signal to all the threads waiting on the condition
 \end{itemize}
-Each of these operations should be performed while holding the lock. We can note that these operations are similar to the JVM monitor |wait()|, |notify()| and |notifyAll()| respectively. This functionality is also similar to the |java.util.concurrent.locks.Condition| class; the primary difference is that the SCL monitor blocks spurious wakeups whereas they are allowing by the JAVA class.
+Each of these operations should be performed while holding the lock. We can note that these operations are similar to the JVM monitor |wait()|, |notify()| and |notifyAll()| respectively. This functionality is also similar to the |java.util.concurrent.locks.Condition| class; the primary difference is that the SCL monitor blocks spurious wakeups whereas they are allowing by the Java class. %revisit: cite for Java Condition
 
-Considering the single-placed buffer, we can use two conditions to separate the threads attempting to |get| and those trying to |put|. We can then modify the program above to only perform a single |signal| towards the threads that are attempting to perform the opposing function, resulting in significant efficiency gains as no threads need to immediately sleep after being woken up.
+Considering the single-placed buffer, we can use two conditions to separate the threads attempting to |get| and those trying to |put|. We then modify the program above to only perform a single |signal| towards the threads that waiting on the opposite condition, resulting in significant efficiency gains as no threads need to immediately sleep after being woken up.
 
 The implementation of the SCL Monitor \cite{GitHub}, makes use of the Java |LockSupport| class; we explore the implementations of these in the next section and present CSP models. \framebox{Wording} 
 
 \subsubsection{The SCL monitor implementation}
 
-The SCL monitor is implemented in two sections: these are a central |Lock| and conditions associated with the central |Lock|. The |Lock| definition is a re-entrant lock (i.e.~ one thread can acquire the acquire the lock multiple times whilst it holds it) with a variable |locker: Thread| which indicates which thread currently holds the |Lock|. The lock implementation is quite simple and for modelling we will instead use a non-reentrant |Lock|; this will reduce the size of the FDR model significantly for model checking without removing functionality.
+The SCL monitor is implemented in Scala as two classes: these are a central |Lock| and |Condition|s associated with the |Lock|. The |Lock| definition is a re-entrant lock (i.e.~ one thread can acquire the lock multiple times whilst holding it) with a variable indicating the current holder. For our model we will use a simple, single-entry lock; this will reduces the state space significantly without removing functionality.
 
-We instead focus on the |Condition| class. This internally uses a queue of |ThreadInfo| objects to store the identities of the waiting threads and a Boolean indicating if that thread has been singalled. When a thread calls |await()| it releases the |lock| and enqueues a |ThreadInfo| object into the queue of the respective condition. A signalling thread dequeues a |ThreadInfo| object from the queue (if non-empty), sets the |ThreadInfo|'s |ready| value to |true| indicatign that it has been signalled and then unparks the corresponding thread. |signalAll| acts similaly to |signal|, but repeats the above process for all |ThreadInfo| objects in the queue. We note that we have excluded all code regarding interruptions from the SCL code below: this is to reduce the complexity of the resulting CSP model. The interruption handling is also quite simple - it stops the thread from parking again once it has been interrupted and throws a |InterruptedException|.
+We instead focus on the |Condition| class. This internally uses a queue of |ThreadInfo| objects to store the identities of the waiting threads, with each of these |ThreadInfo| objects having a Boolean |ready| indicating if that thread has been signalled. When a thread calls |await()| it releases the |lock| and enqueues a |ThreadInfo| object into the queue of the respective condition. A signalling thread dequeues a |ThreadInfo| object from the queue (if non-empty), sets the |ThreadInfo|'s |ready| value to |true| indicating that it has been signalled and then unparks the corresponding thread. |signalAll| acts similarly to |signal| but repeats the above process for all |ThreadInfo| objects in the queue. We note that we have excluded all code regarding interruptions from the SCL code below: this is to reduce the complexity of the resulting CSP model. The interruption handling is also quite simple - it stops the thread from parking again once it has been interrupted and throws a |InterruptedException|.
 
 \begin{scala}[caption={A subset of the {\scalastyle Condition} class from \cite{GitHub}}, label={scala:Condition}]
 import java.util.concurrent.locks.LockSupport
@@ -105,11 +105,11 @@ class Condition(lock: Lock){
 
 We now consider our model of the SCL monitor. This consists of three main components: 
 \begin{itemize}
-  \item The monitor lock: as described above, we model the re-entrant lock of the implementation with a single entry lock here. This is because a thread could obtain the lock an unbounded number of times, resulting in a potentially unbounded state space in FDR. 
+  \item The monitor lock: as described above, we model the re-entrant lock of the implementation with a single-entry lock here. This is because a thread could obtain the lock an unbounded number of times, resulting in a potentially unbounded state space in FDR. 
   
   The lock we use is a simple process \CSPM{Lock(m) = acquire.m?t -> release.m.t -> Lock(m)} which specifies that only one thread can hold the lock and that same thread must release the lock before some other thread can obtain it. This provides mutual exclusion between threads as required.
   \item The |LockSupport| module, described in section \ref{section:LockSupport}.
-  \item The queue of |ThreadInfo| values, desribed in section \ref{section:ThreadInfo}.
+  \item The queue of |ThreadInfo| values, described in section \ref{section:ThreadInfo}.
 \end{itemize}
 
 \paragraph{LockSupport}\label{section:LockSupport}
@@ -118,9 +118,9 @@ The Java |LockSupport| \cite{LockSupport} class offers two main operations: |par
 It is also important to note that |LockSupport| is also affected by spurious wakeups where some parked thread can resume without an |unpark|. 
 %We will therefore use the channel |spurious| to indicate that a spurious wakeup has occured; this will allow us to check that.
 
-Threads interact with the |LockSupport| module via three main events: a thread can park itself, a thread can unpark another thread and a parked thread can wake up. We therefore introduce channels |park|, |unpark| and |wakeUp| to represent these three synchronisations. We also use the |spurious| channel to indicate that the following wake-up is spurious; this will allow us to check that |LockSupport| can only diverge when an infinite numebr of spurious wake-ups occur.
+Threads interact with the |LockSupport| module via three main events: a thread can park itself, a thread can unpark another thread and a parked thread can wake up. We therefore introduce channels |park|, |unpark| and |wakeUp| to represent these three synchronisations. We also use the |spurious| channel to indicate that the following wakeup is spurious; this will allow us to check that |LockSupport| can only diverge when an infinite number of spurious wakeups occur.
 
-Internally, the model stores two sets of threads: |waiting| stores the parked threads and |permits| stores the threads with permits available. A thread that is parking is either added to the waiting set if no permit is available or it is immediately re-awoken is a permit is available. A thread that is performing an |unpark(t)| will either awake |t| if it is currently waiting or store a permit for |t|. We split our definition into two processes: |LockSupport| can either nondeterministically allow a waiting thread to spuriously wake-up, or it can act as the deterministic |LockSupport1| which initially only communicates |park| or |unpark| events.
+Internally, the model stores two sets of threads: |waiting| stores the parked threads and |permits| stores the threads with permits available. A thread that is parking is either added to the waiting set if no permit is available or it is immediately re-awoken is a permit is available. A thread that is performing an |unpark(t)| will either awake |t| if it is currently waiting or store a permit for |t|. We split our definition into two processes: |LockSupport| can either nondeterministically allow a waiting thread to spuriously wakeup, or it can act as the deterministic |LockSupport1| which initially only communicates |park| or |unpark| events.
 %When there is at least one thread waiting and no ongoing |wakeup|, the |LockSupport| module can nondeterministically choose to either operate as normal or to allow one of the waiting threads to spuriously wakeup.
 \framebox{GAVIN???}
 
@@ -137,14 +137,14 @@ module LockSupport
         then wakeUp.t -> LockSupport(waiting, diff(permits, {t}))
       else LockSupport(union(waiting, {t}), permits) )
     []
-    unpark?t?t2-> ( 
-      if member(t2, waiting)
-        then wakeUp.t2 -> LockSupport(diff(waiting, {t2}), permits)
-      else LockSupport(waiting, union(permits, {t2})))
+    unpark?t?t'-> ( 
+      if member(t', waiting)
+        then wakeUp.t' -> LockSupport(diff(waiting, {t'}), permits)
+      else LockSupport(waiting, union(permits, {t'})))
   LockSupport(waiting, permits) =
     if waiting == {} then LockSupport1(waiting, permits)
     else (LockSupport1(waiting, permits)
-          |~| spurious -> wakeUp$t:waiting -> LockSupport(diff(waiting, {t}), permits))
+          |~| spurious -> wakeUp$t':waiting -> LockSupport(diff(waiting, {t'}), permits))
     
 
   LockSupportDet :: ({ThreadID}, {ThreadID}) -> Proc
@@ -173,105 +173,105 @@ endmodule _*$*_
 
 \paragraph{The ThreadInfo Queue}\label{section:ThreadInfo}
 
-As seen in listing \ref{scala:Condition}, each |Condition| maintains a queue of |ThreadInfo| objects which have a thread id and a variable |ready| indicating whether the corresponding thread has been unparked. The natural method of modelling this queue in CSP is with a sequence of nodes, a number of processes each corresponding to a node \framebox{Wording etc} and some co-ordinator processes.
+As seen in listing \ref{scala:Condition}, each |Condition| maintains a queue of |ThreadInfo| objects which each have a thread identity and a variable |ready| indicating whether the corresponding thread has been unparked. The natural method of modelling this queue in CSP is with a sequence of identities, one |ThreadInfo| process per identity and some co-ordinator processes.
 
-We first consider the |ThreadInfo| process. Each |ThreadInfo| process has a corresponding |Node| which remains unchanged throughout; this allows us to use the |Node| datatype to specify which |ThreadInfo| process a thread is interacting with. The |ThreadInfo(n)| process communicates over five channels:
+We first consider the |ThreadInfo| process. Each |ThreadInfo| process has a corresponding |ThreadInfoID| which remains unchanged throughout; this allows us to use the |ThreadInfoID| datatype to specify which |ThreadInfo| process a thread is interacting with. The |ThreadInfo(n)| process communicates over five channels:
 
 \begin{itemize}
-  \item |channel initialiseNode : Node . ThreadID|. A communication of |initaliseNode.n.t| is used to indicate that |ThreadInfo(n)| will act as thread |t|'s |threadInfo| object until it is released.
-  \item |channel releaseNode : Node . ThreadID|. A communication on this will stop |ThreadInfo(n)| from acting as |t|'s |threadInfo| object, it can now be reinitialised by some thread.
-  \item |channel setReady : Node . ThreadID . ThreadID| is used by some thread to indicate that thread |t| has been signalled; this is only allowed to occur once per initialisation.
-  \item |channel isReady : Node . ThreadID . ThreadID . Bool| is used to indicate whether or not thread |t| has been signalled yet. It is used by |t| to protect against spurious wake-ups, reparking itself it is has awoken without being signalled.
-  \item |channel nodeThread : Node . ThreadID . ThreadID|. A communication on this channel of the form |nodeThread.n.t.t2| indicates to thread |t2| that |ThreadInfo(n)| is currently initialised by thread |t|.
+  \item |channel initialiseThreadInfo : ThreadInfoID . ThreadID|. A communication of |initaliseThreadInfo.n.t| is used to indicate that |ThreadInfo(n)| will act as thread |t|'s |threadInfo| object until it is released.
+  \item |channel releaseThreadInfo : ThreadInfoID . ThreadID|. A communication on this will stop |ThreadInfo(n)| from acting as |t|'s |threadInfo| object, it can now be reinitialised by some thread.
+  \item |channel setReady : ThreadInfoID . ThreadID . ThreadID| is used by some thread to indicate that thread |t| has been signalled; this is only allowed to occur once per initialisation.
+  \item |channel isReady : ThreadInfoID . ThreadID . ThreadID . Bool| is used to indicate whether or not thread |t| has been signalled yet. It is used by |t| to protect against spurious wakeups, reparking itself it is has awoken without being signalled.
+  \item |channel threadInfoOwner : ThreadInfoID . ThreadID . ThreadID|. A communication on this channel of the form |threadInfoOwner.n.t.t2| indicates to thread |t2| that |ThreadInfo(n)| is currently initialised by thread |t|.
 \end{itemize}
 
-The lifecycle of the |ThreadInfo| process is that some thread |t| will initialise the |ThreadInfo| process with its identity after it is performing an |await|. The |ThreadInfo| process will then act as that thread's |threadInfo| object from the Scala implementaion. Its corresponding |Node| value will then be enqueued in the condition's queue. A thread may then dequeue that |Node| value vis either a |signal| or |signalAll| call; in both cases it will then call |setReady.n.t?_| to indicate that that the corresponding thread has been signalled. Once thread |t| has been unparked and awoken, it checks that it has been signalled via a communication on |isReady|. When this indicates that |t| has been signalled, |t| then communicates a |releaseNode| event to indicate that it has finished using the corresponding |ThreadInfo| process. It can then be re-initialised by some other thread and the above lifecycle repeated.
-%Each of the nodes can be initialised by a thread, at which point it then acts as that thread's |ThreadInfo| object. It allows threads (including its allocated thread) to check the value of |ready| via a communication on the |isReady| channel, and for other threads to set the value of |ready| to true via the |setReady| channel. Once the parent thread has reawoken legitimately (i.e.~via an |Unpark| not a spurious wakeup) it then releases the node; this is valid as the node must have already been dequeued and |setReady|, hence no further communications should happen until it is reinitialised. We also introduce the channel |nodeThread : Node . ThreadID . ThreadID|; this indicates which thread has initialised the |ThreadInfo| node, corresponding to the Scala |threadInfo.thread|.
-We always allow |ThreadInfo(n)| to communicate on any of its channels, however we diverge whenever some communication occurs that should not be possible in the original Scala code. This allows us to easily check that if the |ThreadInfo| processes are used correctly; any incorrect usage will lead to a divergence which we can find by checking for divergence-freedom later.
+% The lifecycle of the |ThreadInfo| process is that some thread |t| will initialise the |ThreadInfo| process with its identity after it is performing an |await|. The |ThreadInfo| process will then act as that thread's |threadInfo| object from the Scala implementaion. Its corresponding |ThreadInfoID| value will then be enqueued in the condition's queue. A thread may then dequeue that |ThreadInfoID| value vis either a |signal| or |signalAll| call; in both cases it will then call |setReady.n.t?_| to indicate that that the corresponding thread has been signalled. Once thread |t| has been unparked and awoken, it checks that it has been signalled via a communication on |isReady|. When this indicates that |t| has been signalled, |t| then communicates a |releaseThreadInfo| event to indicate that it has finished using the corresponding |ThreadInfo| process. It can then be re-initialised by some other thread and the above lifecycle repeated.
+Each of the |ThreadInfo| processes can be initialised by a thread, at which point it then acts as that thread's |ThreadInfo| object. It allows threads (including its parent thread) to check the value of |ready| via a communication on the |isReady| channel, and for other threads to set the value of |ready| to true via the |setReady| channel. Once the parent thread has reawoken legitimately (i.e.~via an |Unpark| not a spurious wakeup) it releases the |ThreadInfo| object via |releaseThreadInfo|; this is valid as the |ThreadInfoID| must have  been dequeued and |setReady|, hence no further communications should happen until it is reinitialised. We also introduce the channel |threadInfoOwner : ThreadInfoID . ThreadID . ThreadID|; this indicates which thread has initialised the corresponding |ThreadInfo| processes.
+We always allow |ThreadInfo(n)| to communicate on any of its channels, however we diverge whenever some communication occurs that should not be possible in the original Scala code. This allows us to check that the |ThreadInfo| processes are used correctly; any incorrect usage will lead to a divergence which we can discover.
 
 \begin{cspm}[caption={The definition of a {\scalastyle ThreadInfo} process}]
-ThreadInfo :: (Node) -> Proc
+ThreadInfo :: (ThreadInfoID) -> Proc
 ThreadInfo(n) = 
-      initialiseNode.n?t -> ThreadInfoF(n, t)
+      initialiseThreadInfo.n?t -> ThreadInfoF(n, t)
   [] isReady.n?t?t2.true -> DIV
   [] setReady.n?t?t2 -> DIV
-  [] nodeThread.n?t?t' -> DIV
-  [] releaseNode.n?t -> DIV
+  [] threadInfoOwner.n?t?t' -> DIV
+  [] releaseThreadInfo.n?t -> DIV
 ThreadInfoF(n, t) =  
       isReady.n!t?t2.false -> ThreadInfoF(n, t)
   [] setReady.n!t?t2:diff(ThreadID, t) -> ThreadInfoT(n, t)
-  [] initialiseNode.n!t -> DIV
-  [] nodeThread.n.t?t' -> ThreadInfoF(n, t)
-  [] releaseNode.n?t -> DIV
+  [] initialiseThreadInfo.n!t -> DIV
+  [] threadInfoOwner.n.t?t' -> ThreadInfoF(n, t)
+  [] releaseThreadInfo.n?t -> DIV
 ThreadInfoT(n, t) = 
       isReady.n!t?t2.true -> ThreadInfoT(n, t)
   [] setReady.n!t?t2 -> DIV
-  [] initialiseNode.n!t -> DIV
-  [] nodeThread.n.t?t' -> ThreadInfoT(n, t)
-  [] releaseNode.n.t -> ThreadInfo(n)
+  [] initialiseThreadInfo.n!t -> DIV
+  [] threadInfoOwner.n.t?t' -> ThreadInfoT(n, t)
+  [] releaseThreadInfo.n.t -> ThreadInfo(n)
 \end{cspm}
 
-Since we are handling |n| threads and all of them can be waiting at the same time, we hence need |n| |ThreadInfo| processes and hence we define the |Node| datatype as |datatype Node = N.{0..n-1}|. 
-% Each of the nodes can be initialised by a thread, at which point it then acts as that thread's |ThreadInfo| object. It allows threads (including its allocated thread) to check the value of |ready| via a communication on the |isReady| channel, and for other threads to set the value of |ready| to true via the |setReady| channel. Once the parent thread has reawoken legitimately (i.e.~via an |Unpark| not a spurious wakeup) it then releases the node; this is valid as the node must have already been dequeued and |setReady|, hence no further communications should happen until it is reinitialised. We also introduce the channel |nodeThread : Node . ThreadID . ThreadID|; this indicates which thread has initialised the |ThreadInfo| node, corresponding to the Scala |threadInfo.thread|. The |ThreadInfo| objects are designed to diverge whenever a communcation occurs that should not be possible in the original Scala code.
+Since there are |n| threads running and all of them can be waiting at the same time, we hence need |n| |ThreadInfo| processes; we therefore define |datatype ThreadInfoID = N.{0..n-1}|. 
+% Each of the nodes can be initialised by a thread, at which point it then acts as that thread's |ThreadInfo| object. It allows threads (including its allocated thread) to check the value of |ready| via a communication on the |isReady| channel, and for other threads to set the value of |ready| to true via the |setReady| channel. Once the parent thread has reawoken legitimately (i.e.~via an |Unpark| not a spurious wakeup) it then releases the node; this is valid as the node must have already been dequeued and |setReady|, hence no further communications should happen until it is reinitialised. We also introduce the channel |threadInfoOwner : ThreadInfoID . ThreadID . ThreadID|; this indicates which thread has initialised the |ThreadInfo| node, corresponding to the Scala |threadInfo.thread|. The |ThreadInfo| objects are designed to diverge whenever a communcation occurs that should not be possible in the original Scala code.
 
 % \begin{cspm}
-%   ThreadInfo :: (Node) -> Proc
+%   ThreadInfo :: (ThreadInfoID) -> Proc
 %   ThreadInfo(n) = 
-%        initialiseNode.n?t -> ThreadInfoF(n, t)
+%        initialiseThreadInfo.n?t -> ThreadInfoF(n, t)
 %     [] isReady.n?t?t2.true -> DIV
 %     [] setReady.n?t?t2 -> DIV
-%     [] nodeThread.n?t?t' -> DIV
-%     [] releaseNode.n?t -> DIV
+%     [] threadInfoOwner.n?t?t' -> DIV
+%     [] releaseThreadInfo.n?t -> DIV
 %   ThreadInfoF(n, t) =  
 %        isReady.n!t?t2.false -> ThreadInfoF(n, t)
 %     [] setReady.n!t?t2:diff(ThreadID, t) -> ThreadInfoT(n, t)
-%     [] initialiseNode.n!t -> DIV
-%     [] nodeThread.n.t?t' -> ThreadInfoF(n, t)
-%     [] releaseNode.n?t -> DIV
+%     [] initialiseThreadInfo.n!t -> DIV
+%     [] threadInfoOwner.n.t?t' -> ThreadInfoF(n, t)
+%     [] releaseThreadInfo.n?t -> DIV
 %   ThreadInfoT(n, t) = 
 %        isReady.n!t?t2.true -> ThreadInfoT(n, t)
 %     [] setReady.n!t?t2 -> DIV
-%     [] initialiseNode.n!t -> DIV
-%     [] nodeThread.n.t?t' -> ThreadInfoT(n, t)
-%     [] releaseNode.n.t -> ThreadInfo(n)
+%     [] initialiseThreadInfo.n!t -> DIV
+%     [] threadInfoOwner.n.t?t' -> ThreadInfoT(n, t)
+%     [] releaseThreadInfo.n.t -> ThreadInfo(n)
 % \end{cspm}
 
 
-We then use a process called |NodeAllocator| to allocate the |Nodes| to threads and also to collect them when they are no longer required.
-We note that any thread can use any node in this model; this is analogous to the nodes being memory chunks allocated to each thread by |NodeAllocator| and then garbage collected once they are no longer needed. 
+We then use a process called |IDAllocator| to allocate available |ThreadInfo| identities to threads and also to collect them once they have been released.
+We note that any thread can use any |ThreadInfoID| in this model; this is analogous to the |ThreadInfoID| being memory chunks allocated to each thread by |IDAllocator| and then garbage collected once they are no longer needed. 
 
-We note that neither the |NodeAllocator| nor the |Node|s themselves take a |MonitorID| as a parameter; this is because each thread can only perform an |await| on one conition or monitor at any point in time. This choice allows us to use the same |Node|s across multiple monitors, leading to significantly smaller FDR state spaces when modelling using multiple monitors.
+We note that neither the |IDAllocator| nor the |ThreadInfo| processes themselves take a |MonitorID| as a parameter; this is because each thread can only perform an |await| on one condition or monitor at any point in time. This choice allows us to use the same |ThreadInfoID|s across multiple monitors, leading to significantly smaller FDR state spaces when modelling using multiple monitors.
 
-\begin{cspm}[caption={The {\scalastyle NodeAllocator} process}]
-  NodeAllocator(ns) = 
+\begin{cspm}[caption={The {\scalastyle IDAllocator} process}]
+  IDAllocator(ns) = 
     (not(empty(ns))) & 
-      (initialiseNode$n:ns?t -> NodeAllocator(diff(ns, {n})))
-  [] releaseNode?n:ns?t -> DIV
-  [] releaseNode?n:diff(Node, ns)?t -> NodeAllocator(union(ns, {n}))_*$*_
+      (initialiseThreadInfo$n:ns?t -> IDAllocator(diff(ns, {n})))
+  [] releaseThreadInfo?n:ns?t -> DIV
+  [] releaseThreadInfo?n:diff(ThreadInfoID, ns)?t -> IDAllocator(union(ns, {n}))_*$*_
 \end{cspm}
 
-Finally we have the |Queue| processes, which model the queues maintained inside each Condition. Each |Queue| keeps a sequence of the |Node| identities waiting on its condition. The |Queue| processes have three parameters: |m| is the identity of the SCL monitor and |c| is the identity of the condition that the queue belongs to; |qs| is the current state of the queue.%, with each Node corresponding to its current holding thread.
+Finally we have the |Queue| processes, which model the queues maintained inside each Condition. Each |Queue| keeps a sequence of the |ThreadInfoID| identities waiting on its condition. The |Queue| processes have three parameters: |m| is the identity of the SCL monitor and |c| is the identity of the condition that the queue belongs to; |qs| is the current state of the queue.%, with each ThreadInfoID corresponding to its current holding thread.
 
 \begin{cspm}
   Queue(m, c, qs) = 
        (not(null(qs))) & dequeue.m.c?t!head(qs) -> Queue(m, c, tail(qs))
     [] (null(qs)) & isEmpty.m.c?t -> Queue(m, c, qs)
-    [] enqueue.m.c?t?n:diff(Node, QS) -> Queue(m, c, qs^<n>) 
+    [] enqueue.m.c?t?n:diff(ThreadInfoID, QS) -> Queue(m, c, qs^<n>) 
 \end{cspm}
 
-We have that each |Queue| is always ready to accept an |enqueue| (unless all nodes are already in the queue), but will only communicate one of |dequeue| or |isEmpty| at any point in time. We note that the restriction on the values of |n| that can be enqueued is such that the queue is of finite length; this is required for efficient model checking in FDR.
+We have that each |Queue| is always ready to accept an |enqueue| (unless all |ThreadInfoID|s are already in that queue) but will only communicate one of |dequeue| or |isEmpty|. We note that the restriction on the values of |n| that can be enqueued is such that the queue is of finite length; this is required for efficient model checking in FDR.
 
 \subsubsection{The functions and interface of the monitor}
 
-Now we have the components of the model of the monitor, the last step is to place these processes in parallel. The majority of these processes are independent of each other; only the |NodeAllocator| and the |ThreadInfo| processes need to synchronise with each other, which occurs when a node is either initialised or released.
+Now we have the components of the model of the monitor, the last step is to place these processes in parallel. The majority of these processes are independent of each other; only the |IDAllocator| and the |ThreadInfo| processes need to synchronise with each other, which occurs when a |ThreadInfo| process is either initialised or released.
 \begin{cspm}
 Queues(m, setC) = ||| c <- setC @ Queue(m, c, <>)
-NodeSystem = 
-  NodeAllocator(Node) 
-    [|{|initialiseNode, releaseNode|}|] (||| n <- Node @ ThreadInfo(n))
+ThreadInfoSystem = 
+  IDAllocator(ThreadInfoID) 
+    [|{|initialiseThreadInfo, releaseThreadInfo|}|] (||| n <- ThreadInfoID @ ThreadInfo(n))
     
 InitialiseMon(m, setC) = 
-  (Lock(m) ||| Queues(m, setC) ||| NodeSystem ||| InitLockSupport)
+  (Lock(m) ||| Queues(m, setC) ||| ThreadInfoSystem ||| InitLockSupport)
 \end{cspm} 
 
 The first function we export as part of the interface of our module is |runWith(P, mon, setC)| which each takes a process |P| representing program threads, an identity for the monitor and a set of conditions on that monitor. This processes synchronises |P| with the |InitialiseMon(m, setC)|. This is to allow the threads to `call' the various functions that act on the monitor correctly and so that mutual exclusion between threads can be obtained using the functions of the monitor. \framebox{Include spurious in next?}
@@ -280,8 +280,8 @@ The first function we export as part of the interface of our module is |runWith(
   ...
   -- The set of events that are hidden when a thread uses the monitor
   HideSet(m, setC) = 
-    {|park, unpark, wakeUp, enqueue.m.c, dequeue.m.c, initialiseNode, nodeThread,
-      setReady, isReady, isEmpty.m.c, releaseNode | c <- setC|}
+    {|park, unpark, wakeUp, enqueue.m.c, dequeue.m.c, initialiseThreadInfo, threadInfoOwner,
+      setReady, isReady, isEmpty.m.c, releaseThreadInfo | c <- setC|}
 
   -- The set of events to synchronise on between a thread and the monitor
     SyncSet2(m, setC) = Union({{|acquire.m|}, {|release.m|}, HideSet(m, setC)})
@@ -309,7 +309,7 @@ exports
 
 In the definitions above, |SyncSet| contains every event that we need to synchronise on between a series of threads and the monitor. We then hide all events except for those representing a thread acquiring and releasing the lock; this is the contents of |HideSet|.
 
-We now consider the operations offered by the monitor. We have the interface given below, with each of the five operations corresponding to the function of the same name. Each process starts with a communication on the correspondingly named |callX| channel to indicate that the specified thread has just called that function; this makes examining any traces produced significantly simpler. We will refer to these |callX| communications as `external' and all other channels as being `internal'. \framebox{Better convention for placeholder values?}
+We now consider the operations offered by the monitor. We have the interface given below, with each of the five operations corresponding to the function of the same name. Each process starts with a communication on the correspondingly named |callX| channel to indicate that the specified thread has just called that function; this makes examining any traces produced significantly simpler. We will refer to these |callX| communications as `external' and all other channels as being `internal'. 
   
 \begin{cspm}
 export 
@@ -334,20 +334,20 @@ Both |Lock| and |Unlock| both only require a single internal communication (eith
 \begin{cspm}
 Signal1(mon, cnd, t) = 
       isEmpty.mon.cnd.t -> SKIP
-  [] dequeue.mon.cnd.t?n -> nodeThread.n?t2!t -> isReady.n.t2.t?b ->
+  [] dequeue.mon.cnd.t?n -> threadInfoOwner.n?t2!t -> isReady.n.t2.t?b ->
         (if b then Signal1(mon, cnd, t)
         else setReady.n.t2.t -> Unpark(t, t2))
 
 SignalAll1(mon, cnd, t) =
       isEmpty.mon.cnd.t -> SKIP
-  [] dequeue.mon.cnd.t?n -> nodeThread.n?t2!t -> setReady.n.t2.t -> 
+  [] dequeue.mon.cnd.t?n -> threadInfoOwner.n?t2!t -> setReady.n.t2.t -> 
           Unpark(t, t2); SignalAll1(mon, cnd, t)
 
 Await1(mon, cnd, t) = 
-  initialiseNode?n!t -> enqueue.mon.cnd.t.n -> release.mon.t -> Await2(mon, cnd, t, n)
+  initialiseThreadInfo?n!t -> enqueue.mon.cnd.t.n -> release.mon.t -> Await2(mon, cnd, t, n)
 
 Await2(mon, cnd, t, n) = 
-  isReady.n.t.t?b -> (if b then releaseNode.n.t -> acquire.mon.t -> SKIP
+  isReady.n.t.t?b -> (if b then releaseThreadInfo.n.t -> acquire.mon.t -> SKIP
                       else Park(t); Await2(mon, cnd, t, n))
 \end{cspm}
 
@@ -422,7 +422,7 @@ Spec2SCL = (let m = SigM.S.0 within
 
 We first note that the specification process provided is divergence free; we choose this as an idealised monitor should never internally diverge. We use the technique of having multiple threads linear
 
-To test against this specification, we interleave a number of process of |ThreadSCL(t)|, with each of these representing the potential (correct) usage of the monitor that thread |t| could perform. These are interleaved to form |ThreadsSCL| and then this is then synchronised with the SCL monitor, via the use of |runWith| or |runWithDet| as outlined above.
+To test against this specification, we interleave a number of |ThreadSCL(t)| processes, with each of these representing the potential (correct) usage of the monitor that thread |t| could perform. These are interleaved to form |ThreadsSCL| and then this is then synchronised with the SCL monitor, via the use of |runWith| or |runWithDet| as outlined above.
 
 \begin{cspm}
 ThreadSCL(t) = SCL::Lock(SigM.S.0, t); ThreadSCL1(t)
@@ -445,7 +445,7 @@ assert SCLSystemSpur :[divergence free]
 assert not SCLSystem :[divergence free]
 \end{cspm}
 
-We have that both the assertions pass: |SCLSystemSpur| is divergence free, but hiding the |spurious| channel introduces divergences. Since the system is divergence-free with the |spurious| channel visible, we can conclude that spurious wake-ups don't lead to a state where the system can diverge without more spurious wake-ups. We can therefore conclude that the divergences of the system with |spurious| hidden are only due to repeated spurious wakeups
+We have that both the assertions pass: |SCLSystemSpur| is divergence free, but hiding the |spurious| channel introduces divergences. Since the system is divergence-free with the |spurious| channel visible, we can conclude that spurious wakeups don't lead to a state where the system can diverge without more spurious wakeups. We can therefore conclude that the divergences of the system with |spurious| hidden are only due to repeated spurious wakeups
 
 % Similarly to \framebox{ref}, we have that this divergence is not a major concern since it relies on infrequent spurious wakeups occuring. We also note that, similarly to before in \framebox{ref to previous chapter}, we have that each of these states where a divergence can occur has a corresponding stable state, hence it is valid for us to check refinement under stable-failures in this case.
 
@@ -457,9 +457,9 @@ We note that using the stable failures-model is normally inappropriate for a sys
 
 We have that this the assertion holds, indicating that the SCL monitor fulfils the specification of a monitor as required.
 
-We next consider the fairness of the monitor with regards to individual |signal| calls. In the SCL monitor, queues are used so that each |signal| wakes the thread that has been waiting for the longest time on the condition (if one exists). We test that this property holds using |OrderCheck|, a process which maintains a list of the threads waiting on each condition in the order that they started waiting. |OrderCheck| effectively acts as a watchdog, completing a communication over the new channel |error| if an error in ordering is detected; we therefore verify this has not occured by a trace refinement against the specification. 
+We next consider the fairness of the monitor with regards to individual |signal| calls. In the SCL monitor, queues are used so that each |signal| wakes the thread that has been waiting for the longest time on the condition (if one exists). We test that this property holds using |OrderCheck|, a process which maintains a list of the threads waiting on each condition in the order that they started waiting. |OrderCheck| effectively acts as a watchdog, completing a communication over the new channel |error| if an error in ordering is detected; we therefore verify this has not occurred by a trace refinement against the specification. 
 
-We choose to use a watchdog as the left hand side of any assertion has to be normalised by FDR. Normalisation is an expensive process for complex specifications with many states; maintaining queues of waiting threads on each condition is therefore more suited to the right-hand side of an assertion as this does not require normalisation. For further details, see \cite{RoscoeUCS}.
+We choose to use a watchdog as the left-hand side of any assertion has to be normalised by FDR. Normalisation is an expensive process for complex specifications with many states; maintaining queues of waiting threads on each condition is therefore more suited to the right-hand side of an assertion as this does not require normalisation. For further details, see \cite{RoscoeUCS}.
 
 \begin{cspm}
 valuesSeq(map) = Union({set(mapLookup(map, cnd)) | cnd <- ConditionID})
@@ -479,9 +479,7 @@ OrderCheck(m, waiting) =
                                     tail(mapLookup(waiting, c)))))
 \end{cspm}
 
-This new process only synchronises on the events ; this is sufficient to detect any threads which have non-spuriously woken up before they should.
-
-To run the refinement checks, we place |OrderCheck| in parallel with |SCLSystem|. We only synchronise on events that that indicate a thread waking, waiting or acquiring the lock; these are all the communications offered by |OrderCheck| except for |error.m|. 
+This new process only synchronises on events that that indicate a thread waking, waiting or acquiring the lock; these are all the communications offered by |OrderCheck| except for |error.m|. We can then run the refinement checks by we placing |OrderCheck| in parallel with |SCLSystem|. 
 
 We then check that this still trace refines |SpecSCL|, which it does. We can therefore conclude that no |error| events occur and no new stable failures are introduced, hence the ordering within the model of the SCL monitor are maintained correctly.
 
@@ -495,48 +493,48 @@ assert SpecSCL [T= (OrderCheck(SigM.S.0, initSeq)
 
 \subsubsection{Limitations of natural model of the queue}
 
-Though the model given above is a natural model of the SCL monitor, this is quite ill-suited to refinement checking in FDR. The current implementation of the |ThreadInfo| allows any thread to obtain and use any of the |Node|s; this leads to exponential blow up in the number of states as the number of threads increases. Considering a case where we have $n$ threads and $m$ are currently waiting with their nodes queued, this has $n\choose{m}$, or $O(n^{m})$ permutations.
+Though the model given above is a natural model of the SCL monitor, this is quite ill-suited to refinement checking in FDR. The current implementation of the |ThreadInfo| allows any thread to obtain and use any of the |ThreadInfoID|s; this leads to exponential blow up in the number of states as the number of threads increases. Considering a case where we have $n$ threads and $m$ are currently waiting with their |ThreadInfoID|s queued, this has $n\choose{m}$, or $O(n^{m})$ permutations.
 
-We can instead use the same nodes, but restrict them so that each node |N.x| can only be used by the respective thread |T.x|. This forces each thread to use the same |ThreadInfo| each time, removing this source of blow up. This is most trivially done by changing |Await1| to specify the node to initialise and not a random one allocated by |NodeAllocator| i.e.~as follows:
+We can instead use the same |ThreadInfoID|s, but restrict them so that each |ThreadInfoID| |N.x| can only be used by the respective thread |T.x|. This forces each thread to use the same |ThreadInfo| process each time, removing this source of blow up. This is most trivially done by changing |Await1| to specify the |ThreadInfoID| as follows:
 
 \begin{cspm}
-  Await1(mon, cnd, t) = initialiseNode.N.t -> ...
+  Await1(mon, cnd, t) = initialiseThreadInfo.N.t -> ...
 
-  NodeAllocator(ns) = 
-      (not(empty(ns))) & (initialiseNode?n:ns?t -> NodeAllocator(diff(ns, {n}))) 
+  IDAllocator(ns) = 
+      (not(empty(ns))) & (initialiseThreadInfo?n:ns?t -> IDAllocator(diff(ns, {n}))) 
    [] ...
 \end{cspm}
 
-We will refer to this version of the queue as the `Simple' model. This simplified model has one possible bijective mapping of threads to nodes. By contrast, the natural model has $n!$ bijective mappings of threads to nodes. As a result, for every single state that the model with the simplified queue can be in, there are upto $n!$ states of the natural model that are identical in all manners other than the node allocations.
+We will refer to this version of the queue as the `Simple' model. This simplified model has one possible bijective mapping of |ThreadID| $\implies$ |ThreadInfoID|. By contrast, the natural model has $n!$ bijective mappings of threads to |ThreadInfoID|s. As a result, for each single state of the model with the simplified queue, there are upto $n!$ states of the natural model that are identical in all facets other than the |ThreadInfoID| allocations.
 
-For further performance improvements, we can also remove the node allocator process as each node is pre-allocated. Additionally we can change the type signature of |Node| to |N.ThreadID| and simplify many of the channels (removing |nodeThread| and |releaseNode| entirely) as node indicates which thread it corresponds to as follows:
+For further performance improvements, we can also remove the allocator process as each |ThreadInfoID| is pre-allocated. Additionally we can change the type of |ThreadInfoID| to |N.ThreadID| and simplify many of the channels (removing |threadInfoOwner| and |releaseThreadInfo| entirely) as |ThreadInfoID| indicates which thread it corresponds to as follows:
 
 \begin{cspm}
-  datatype Node = N.ThreadID
-  channel enqueue: MonitorID.ConditionID.Node 
-  channel dequeue: MonitorID.ConditionID.ThreadID.Node
-  channel setReady: Node.ThreadID
-  channel isReady: Node.ThreadID.Bool
-  channel initialiseNode: Node
+  datatype ThreadInfoID = N.ThreadID
+  channel enqueue: MonitorID.ConditionID.ThreadInfoID 
+  channel dequeue: MonitorID.ConditionID.ThreadID.ThreadInfoID
+  channel setReady: ThreadInfoID.ThreadID
+  channel isReady: ThreadInfoID.ThreadID.Bool
+  channel initialiseThreadInfo: ThreadInfoID
   channel isEmpty: MonitorID.ConditionID.ThreadID
   channel await, signalAll: MonitorID.ConditionID.ThreadID
 \end{cspm}
 
-All the definitions remain the same apart from removing any |nodeThread| and |releaseNode| communications and the required type changes. We keep |initialiseNode| to so that a thread can use it to indicate it is initialising a `new' |ThreadInfo| object and hence to reset the |ready| value to false. We also change |InitialiseMon| and |InitialiseMonDet| to remove the |NodeAllocator|; each of the individual |ThreadInfo| processes are still interleaved as before. We will refer to this as the `optimised' version.
+All the definitions remain the same apart from removing any |threadInfoOwner| and |releaseThreadInfo| communications and the required type changes. We keep |initialiseThreadInfo| in order to reset the |ready| value to false. We also change |InitialiseMon| and |InitialiseMonDet| to remove the |IDAllocator|. We will refer to this as the `optimised' version.
 
-We first need to check that this simplified model remains correct. The refinement checks still all pass, indicating that the monitor model with a modified queue fulfills the specification similarly\framebox{wording} to the natural queue model.
+We first need to check that this simplified model remains correct. The refinement checks still all pass, indicating that the monitor model with a modified queue fulfils the specifications that the natural queue did.
 
-We next verify that the efficiency improvements occurs in practice too. We do this by running the FDR verification of |assert SpecSCL [F= SCLSystem| for a range of numbers of threads and conditions. We then compare the number of states generated by the different queue models, with the results presented in table \ref{table:queue}.
+We then verify that the efficiency improvements occur in practice. We do this by running the FDR verification of |assert SpecSCL [F= SCLSystem| for a range of numbers of threads and conditions. We then compare the number of states generated by the different queue models, with the results presented in table \ref{table:queue}.
 
 \def\thickhline{\noalign{\hrule height 1.5pt}}
 
 \begin{table}
   \renewcommand*{\arraystretch}{1.2}
-  \caption{The number of states generated by FDR for the different queue implementations. The improvement value is given as the $\frac{\text{Original number of states}}{\text{Reduced number of states}}$}
-    \begin{tabularx}{\linewidth}{|l|l|X|X|X|X|X|}
+  \caption{The number of states generated by FDR for the different queue implementations. The reduction value is given as $\frac{\text{Original number of states}}{\text{Reduced number of states}}$}
+    \begin{tabularx}{\linewidth}{{|l|l|X|X|X|X|X|}}
       \thickhline
       No.&No.& \multicolumn{5}{l|}{Number of states} \\
-      threads&conditions& Natural & Simple & Improvement & optimised & Improvement\\
+      threads&conditions&Natural&Simple&Reduction&Optimised&Reduction\\
       \thickhline
       2 & 1 & 2288 & 1088 & 2.10& 904 & 2.53\\ \hline
       3 & 1 & 239428 & 36262 & 6.60& 26494 & 9.04 \\ \hline
@@ -556,12 +554,12 @@ We next verify that the efficiency improvements occurs in practice too. We do th
     \label{table:queue}
   \end{table}
 
-  Here we see that the restricted model with each thread allocated a single node to use results in a state space reduced by a factor of at least $n!$ where $n$ is the number of threads. This is as expected due to the reduction in the mappings from threads to nodes as stated above. Though the state space still grows exponentially with the simplified queues, it is exponentially more efficient and makes refinement checks for larger numbers of threads and conditions significantly more feasible.
+  Here we see that the restricted model with each thread is allocated a |ThreadInfo| process results in a state space reduced by a factor of over $n!$ where $n$ is the number of threads. This is as expected due to the reduction in the mappings from threads to nodes as stated above. Though the state space still grows exponentially, it is much more efficient and makes refinement checks for larger numbers of threads and conditions significantly more feasible.
   
   % If we consider the 
   
   
-  % This is as expected: we have $n!$ possible allocations of threads to nodes (one per node, and with this weakly associating any unallocated node with some thread without an allocated node). Whenever a node |n| is allocated to thread |t| by an |initialiseNode|, we swap the thread that |n| was associated with to the node that |t| was previously weakly associated to. By contrast, the simplified queue has that each node can only ever be allocated/associated with a single node; there is only 1 permutation for this. As a result, for every single state that the model with the simplified queue can be in, there are $n!$ states of the natural model that are identical in all manners other than the node allocations.
+  % This is as expected: we have $n!$ possible allocations of threads to nodes (one per node, and with this weakly associating any unallocated node with some thread without an allocated node). Whenever a node |n| is allocated to thread |t| by an |initialiseThreadInfo|, we swap the thread that |n| was associated with to the node that |t| was previously weakly associated to. By contrast, the simplified queue has that each node can only ever be allocated/associated with a single node; there is only 1 permutation for this. As a result, for every single state that the model with the simplified queue can be in, there are $n!$ states of the natural model that are identical in all manners other than the node allocations.
 
   
 

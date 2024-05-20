@@ -4,7 +4,7 @@
   year         = {2012},
   url={https://www.philadelphia.edu.jo/academics/lalqoran/uploads/A-Gift-of-Fire-4thEd-2012.pdf}
 }
-@InProceedings{Amazon1,
+@Article{Amazon1,
   author          = {Chong et al.},
   journal         = {Software Engineering in Practice},
   title           = {Code-Level Model Checking in the Software Development Workflow},
@@ -85,7 +85,7 @@ isbn="978-3-540-69661-2"
 }
 @misc{GitHub,
   author       = {Gavin Lowe},
-  title        = {Scala Concurrency Library - lock.scala},
+  title        = {Scala Concurrency Library - Lock.scala},
   year         = {2022},
   url = {https://github.com/GavinLowe1967/Scala-Concurrency-Library/blob/main/src/Lock/Lock.scala}
 }
@@ -247,7 +247,7 @@ url={https://www.cs.ox.ac.uk/bill.roscoe/publications/119.pdf}
   title          = {Understanding Concurrent Systems},
   year           = {2010}
 }
-@article{Schellhorn,
+@misc{Schellhorn,
   author          = {Gerhard Schellhorn and Simon B{\"a}umler},
   journal         = {Ninth International Conference on Application of Concurrency to System Design},
   title           = {Formal Verification of Lock-Free Algorithms},
@@ -265,19 +265,11 @@ edition = {1st}
 author = {Musuvathi, Madanlal and Park, David Y. W. and Chou, Andy and Engler, Dawson R. and Dill, David L.},
 title = {CMC: a pragmatic approach to model checking real code},
 year = {2003},
-issue_date = {Winter 2002},
 publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
 volume = {36},
-number = {SI},
 issn = {0163-5980},
 url = {https://doi.org/10.1145/844128.844136},
-doi = {10.1145/844128.844136},
-abstract = {Many system errors do not emerge unless some intricate sequence of events occurs. In practice, this means that most systems have errors that only trigger after days or weeks of execution. Model checking [4] is an effective way to find such subtle errors. It takes a simplified description of the code and exhaustively tests it on all inputs, using techniques to explore vast state spaces efficiently. Unfortunately, while model checking systems code would be wonderful, it is almost never done in practice: building models is just too hard. It can take significantly more time to write a model than it did to write the code. Furthermore, by checking an abstraction of the code rather than the code itself, it is easy to miss errors.The paper's first contribution is a new model checker, CMC, which checks C and C++ implementations directly, eliminating the need for a separate abstract description of the system behavior. This has two major advantages: it reduces the effort to use model checking, and it reduces missed errors as well as time-wasting false error reports resulting from inconsistencies between the abstract description and the actual implementation. In addition, changes in the implementation can be checked immediately without updating a high-level description.The paper's second contribution is demonstrating that CMC works well on real code by applying it to three implementations of the Ad-hoc On-demand Distance Vector (AODV) networking protocol [7]. We found 34 distinct errors (roughly one bug per 328 lines of code), including a bug in the AODV specification itself. Given our experience building systems, it appears that the approach will work well in other contexts, and especially well for other networking protocols.},
 journal = {SIGOPS Oper. Syst. Rev.},
-month = {dec},
-pages = {75-88},
-numpages = {14}
 }
 @ARTICLE{SPIN,
   author={Holzmann, G.J.},
@@ -294,4 +286,10 @@ numpages = {14}
   title        = {Computer-Aided Formal Verification Lecture 9: LTL Model Checking},
   year         = {2022},
   url = {https://www.cs.ox.ac.uk/teaching/courses/2022-2023/computeraidedverification/index.html}
+}
+@misc{LoweBarrier,
+  author       = {Gavin Lowe},
+  title        = {Scala Concurrency Library - Barrier.scala},
+  year         = {2022},
+  url = {https://github.com/GavinLowe1967/Scala-Concurrency-Library/blob/main/src/Lock/Barrier.scala}
 }

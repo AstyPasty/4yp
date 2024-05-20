@@ -116,18 +116,15 @@
 %TC:envir scala [] ignore
 %TC:envir inlineCSP [] ignore
 %TC:envir inlineCSPM [] ignore
-%TC:envir CSPM [] ignore
 
 
 \begin{document}
   \maketitle
   \tableofcontents
-  %\listoffigures
-  %\listoftables
-
-%   Start of 3.1 introducing channels
-
-%   LIVELOCK-FREEDOM - change to no divergence before first lock
+  
+%  \listoffigures
+%  \listoftables
+%  \pagebreak
 
 % \begin{itemize}
 %   \item Change figure linkings
@@ -135,13 +132,8 @@
 %   \item wait-free? etc
 %   \item Process names
 %   \item Consistency wrt spurious
-%   \item Font colours
-%   \item table formatting
-%   \item End of lit review
-%   \item Diagrams
-%   \item Standard notions
 % \end{itemize}
-\pagebreak
+
  \input{intro.tex}
  \input{lit.tex}
  \input{locks}
@@ -151,6 +143,17 @@
  \input{barrier.tex}
  
  \input{eval.tex}
+  \newpage
+  %\addcontentsline{toc}{section}{7\protect\numberline{}Bibliography}
+  \addtocounter{section}{1}
+  %\addcontentsline{toc}{section}{\arabic{section}~~Bibliography}
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Bibliography}
+  %\addcontentsline{toc}{subsubsection}{\protect\numberline{\thesubsubsection} line added to TOC: subsubsection one}
+  \DeclareFieldFormat[inbook]{citetitle}{#1}
+  \DeclareFieldFormat[article]{title}{#1} 
+  \printbibliography
+
+\end{document}
 
   %\begin{enumerate}
   %  \item \textbf{Action on Objectives:} The attacker now begins to achieve their initial objectives making use of the system access they have achieved. These objectives can include anything from data exfiltration to ransomware attacks to damage to physical systems.
@@ -203,7 +206,7 @@
 
   
 
-
+\newpage
   \Urlmuskip=0mu plus 1mu
   \emergencystretch=1em
   \printbibliography{}

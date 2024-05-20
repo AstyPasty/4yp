@@ -16,7 +16,7 @@ channel delay: ThreadID
 -- state variable
 channel get, set : ThreadID . Bool
 channel getAndSet : ThreadID . Bool . Bool
-State = Var(false, get, set, getAndSet)
+State = AtomicVar(false, get, set, getAndSet)
 InternalVarChannels = {|get, set, getAndSet|}
 InternalChannels = {|get, set, getAndSet, delay|}
 
@@ -87,8 +87,9 @@ assert (ActualSystem [|{|getAndSet, get|}|] CheckNoDiv)
 
 
 
-assert LockSpec(L.0, {}, ThreadID) [T= ActualSystemRExtDiv
-assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)
+assert LockSpec2(L.0, {}, ThreadID) [T= ActualSystemRExtDiv
+
+--assert ActualSystemR [T= LockSpec(L.0, {}, ThreadID)
 
 channel ended: ThreadID
 StarveFree = callLock.L.0.T.0 -> lockAcquired.L.0.T.0 -> StarveFree
@@ -98,3 +99,29 @@ StarveFree2 = callLock.L.0.T.0 -> lockAcquired.L.0.T.0 -> StarveFree
               |~| end.T.0 -> Out
 Out = ended!T.0 -> Out
 assert (ActualSystemRNoDiv [|{callLock.L.0.T.0, lockAcquired.L.0.T.0, end.T.0}|] StarveFree2) \diff(LockEndEvents, {callLock.L.0.T.0, lockAcquired.L.0.T.0}):[divergence free]
+
+
+
+assert AcquireLock(L.0, {}, ThreadID) [F=
+          ActualSystemRExtDiv \ AcquireLockChans(L.0, ThreadID)
+
+-- assert AcquireLock2(L.0, {}) [F= 
+--         ActualSystemRExtDiv \ union(AcquireLockChans(L.0, ThreadID), {|end|})
+
+assert LiveUnlocked(L.0) [FD= 
+          ActualSystemRExtDiv \ diff(LockEndEvents, {|lockAcquired.L.0, lockReleased.L.0|})
+
+assert DIV [FD= 
+          ActualSystemRExtDiv \ diff(LockEndEvents, {|lockAcquired.L.0, lockReleased.L.0|})    
+
+P = lockAcquired.L.0?_ -> P1 |~| STOP --(lockReleased.L.0.T.0 |~| (P1 \ {|lockAcquired|}))
+P1 =  P2 \ {|lockAcquired|}    
+
+P2 = lockAcquired.L.0.T.0 -> lockAcquired.L.0.T.0 -> P2
+
+assert P [FD= 
+          ActualSystemRExtDiv \ diff(LockEndEvents, {|lockAcquired.L.0, lockReleased.L.0|})
+
+channel a
+
+assert a -> DIV [FD= a -> a -> DIV

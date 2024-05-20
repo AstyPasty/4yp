@@ -53,7 +53,7 @@ The |signalDown| function is used to signal to the child that the synchronisatio
 \subsubsection{Modelling the Signal objects}
 
 We use our model for a JVM monitor from \framebox{REF} in our modelling of the |Signal| object. 
-\framebox{Wording} An interacting thread will run the CSP process of the equivalent Scala function, here referred to as |Func|. In each case these first communicates a |callFunc| before running the |syncFunc| process within a |Synchronized| block as outlined previously in section \framebox{REF} \ref{listing::JVMMonitorInterface}.
+\framebox{Wording} A thread will run the CSP process of the equivalent Scala function, here referred to as |Func|. In each case these first communicates a |callFunc| before running the |syncFunc| process within a |Synchronized| block (as defined in section \ref{listing::JVMMonitorInterface}).
 %In each case the calling |Proc| will first run the procedure |Func| which communicates the function and the |SignalID| that has been called by a given |ThreadID|. 
 
 \framebox{From signal-scala.csp}

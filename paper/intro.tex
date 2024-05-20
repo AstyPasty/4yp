@@ -7,7 +7,7 @@ In a world reliant on computer systems, the correctness of those systems is vita
 
 In order to achieve better performance, concurrency can often be introduced to improve the performance of programs or systems, especially those with semi-independent tasks or components.
 Concurrent systems, be this on a single computer or distributed across a network, achieve these performance improvements at the cost of additional complexity; the design now needs to consider the interactions between threads. 
-Each of possible interactions between threads could potentially lead to a \emph{race condition} in a poorly designed systems; this is where two non-independent actions can occur in an order which produces an incorrect or unwanted outcome. 
+Each of possible interactions between threads could potentially lead to a \emph{race condition} in a poorly designed systems. A race condition is where two non-independent actions can occur in an order which produces an incorrect or unwanted outcome. 
 %The most famous example of this was in the Therac-25 radiation therapy machine which lead to the deaths of three patients due to overexposure as a result of a race condition in the machine's software where the high radiation beam was selected and quickly changed to the lower radiation beam\cite{BugSnag}. 
 Race conditions can be very damaging in practice: the Therac-25 radiation therapy machine killed three of its patients by radiation overexposure as a result of a race condition \cite{BugSnag}. This was caused by the operator quickly changing from the high radiation beam mode to select the lower radiation beam instead; the race condition resulted in the machine erroneously still using the high radiation beam. This highlights the importance of thorough system validation; had more through system verification been completed, these deaths would have likely been avoided \cite{AGift}.
 
@@ -19,11 +19,16 @@ Testing can only establish the presence of a bug, not the absence of any; this c
 
 %Writing exhaustive tests is near impossible for sufficiently complex concurrent systems. 
 %This is predominantly due to the sheer number of different interactions between independent threads: considering all possible interactions and testing them effectively are both challenging tasks.
-\emph{Linearizability} testing is an effective alternative approach, although this this relies on the random testing of edge cases; clearly this is not exhaustive either \cite{LoweLin}.\framebox{Explain}
+\emph{Linearization} testing is an effective alternative approach.
+This treats each operation as having occured (been \emph{linearized}) at some point in time between the start and finish of the operation. It then checks that performing the operations sequentially in the same order returns the same results.
+This also relies on the nondeterministic testing of edge cases so is also not exhaustive either \cite{LoweLin}. %revisit
 
-By contrast, formal verification can be used to show that systems satisfy some desired properties \cite{PrinciplesOfModelChecking}. This, however, is a complex process and it is often impossible to model check the complete behaviour of a large system simply due to the size of the resulting state space; we instead focus on modelling the concurrent interactions between threads via a variety of synchronisation objects \framebox{Explain synch objects}. 
+By contrast, formal verification can be used to show that systems satisfy some desired properties \cite{PrinciplesOfModelChecking}. This, however, is a complex process and it is often impossible to model check the complete behaviour of a large system simply due to the size of the resulting state space; we instead focus on modelling the concurrent interactions between threads via a variety of synchronisation objects. Synchronisation objects are used to control the potential interaction between threads, simplifying the design of concurrent systems and helping to achieve race conditions.
 
-There are two main benefits of this. Firstly, we prove that the synchronisation objects function correctly; debugging concurrent programs is a complex task and bugs due to issues with synchronisation objects can often be particularly challenging to resolve. The second benefit is that we can significantly optimise the model checking of systems that use these primitives. We prove that the synchronisation objects fulfil a specification with the same properties but without all of the internal workings. We can therefore optimise model checking of whole systems by replacing the original synchronisation objects with their respective specification process without changing system behaviour. This allows us to significantly reduce the possible state space of the system, making formal verification of complex systems significantly more feasible.
+There are two main benefits of this. Firstly, we prove that the synchronisation objects function correctly; debugging concurrent programs is a complex task and bugs due to issues with synchronisation objects can often be particularly challenging to resolve. The second benefit is that we can significantly optimise the model checking of systems that use these primitives. 
+If we can prove that some synchronisation object fulfils a simpler specification which has the same properties, we can then use the specification to simplify future model checks but wihtout changing the system behaviour.%revisit
+%We prove that the synchronisation objects fulfil a specification with the same properties but without all of the internal workings. We can therefore optimise model checking of whole systems by replacing the original synchronisation objects with their respective specification process without changing system behaviour. 
+This allows us to significantly reduce the possible state space of the system, making formal verification of complex systems significantly more feasible.
 %; if the interactions between threads behave as expected then system validation can be reduced to checking the behaviour of the individual, sequential, threads.
 
 %Focusing on these interactions allows us to decrease the size of a system to the extent where it is now feasible to model check these behaviours. 
@@ -39,9 +44,9 @@ We choose to use the process algebra Communicating Sequential Processes (CSP) \c
 The contributions of this project are as follows:
 
 \begin{itemize}
-  \item We examine a variety of locks from \cite{CADS} and a number of desirable properties of locks, using CSP refinement checks to determine which properties each lock satisfes. We also discuss the feasibility of modelling infinite liveness properties using CSP, presenting a novel proof that starvation-freedom cannot be captured in CSP.
-  \item We model both the standard JVM monitor and the Scala Concurrency Libraray (SCL) \cite{CP} implementation of a monitor, proving that the SCL monitor provides the same mutual exclusion and correctness properties as the JVM monitor but without the same unwanted behaviours.
-  \item We produce a CSP model of a 2-thread synchronisation object and how multiple synchronisation objects can be organised into an arbitrary $n$-thread barrier synchronisation object. We then use the CSP model to prove the correctness of the barrier synchronisation object.
+  \item We examine a variety of locks from \cite{CADS} and a number of desirable properties of locks, using CSP refinement checks to determine which properties each lock satisfes. We also discuss the feasibility of modelling infinite liveness properties using CSP, presenting a novel proof that starvation-freedom cannot be captured in CSP before considering alternative approaches.%revisit - last bit
+  \item We model both the standard JVM monitor and the Scala Concurrency Library (SCL) \cite{CP} implementation of a monitor, proving that the SCL monitor provides the same mutual exclusion and correctness properties as the JVM monitor but without some unwanted behaviours.
+  \item We produce a CSP model of a 2-thread synchronisation object and show how multiple 2-thread synchronisation objects can be organised into an arbitrary $n$-thread barrier synchronisation object. We then use the CSP model to prove the correctness of the barrier synchronisation object.
 \end{itemize}
 
 

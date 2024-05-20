@@ -46,7 +46,23 @@ AcquireLock(l, ts, TS) = end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t}
                          [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
                          [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
 AcquireLockChans(l, ts) = diff(LockEndEvents, 
-                        {callLock.l.t, lockAcquired.l.t | t <- ts})
+                        {callLock.l.t, lockAcquired.l.t, end.t | t <- ts})
 
+AcquireLock2(l, ts) = 
+         callLock.l?t:(diff(ThreadID, ts)) -> AcquireLock2(l, union(ts, {t}))
+      [] lockAcquired.l?t:ts -> AcquireLock2(l, diff(ts, {t}))
+
+LiveUnlocked(l) =   lockAcquired.l?t -> LiveLocked(l)
+                  --|~| STOP
+LiveLocked(l) =     lockReleased.l?t -> LiveUnlocked(l)
+                  |~| DIV                      
+
+
+-- AcquireLock(l, ts) = 
+--        callLock.l?t:(diff(ThreadID, ts)) -> AcquireLock(l, union(ts, {t}))
+--       [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}))
+
+-- assert AcquireLock(L.0, {}) [F= 
+--         LockSpec(L.0) \ diff(union({|end|}, LockEvents), {|callLock.L.0, lockAcquired.L.0|})
 
 -- Starvation freedom

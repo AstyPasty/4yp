@@ -38,6 +38,6 @@ Array(Ind, init, getA, setA) =
 
 IntArray(Ind, init, getI, setI, l, u) = 
   let Entry(index, value) = 
-           get!index?_!value -> Entry(index, value)
+           getI!index?_!value -> Entry(index, value)
         [] setI!index?_?value': {l..u} -> Entry(index, value')
   within ||| index : Ind @ Entry(index, init)

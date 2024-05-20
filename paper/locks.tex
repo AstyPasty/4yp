@@ -5,18 +5,19 @@
 
 % \inlineScala
 
-In this section we will analyse a number of different lock implementations. 
+%In this section we will analyse a number of different lock implementations. 
 
-The primary purpose of locks is to provide \emph{mutual exclusion} between threads; that is to avoid two threads from operating concurrently on the same section of code, referred to as the \emph{critical region}. A good lock should also fulfil some \emph{liveness} requirements, essentially that something good will eventually happen. We will present a few models of locks and examine how we can model certain liveness and safety properties using CSP.
+The primary purpose of locks is to provide \emph{mutual exclusion} between threads; that is to avoid two threads from operating concurrently on the same section of code, referred to as the \emph{critical region}. A good lock should also fulfil some \emph{liveness} requirements, essentially that something good will eventually happen assuming no thread holds the lock indefinitely. We examine how we can model certain liveness and safety properties using CSP, present a number of different locks and test if the expected properties hold.
 
 %When devising liveness requirements we assume that no thread wil hold the lock indefinitely; otherwise most reasonable liveness requirements can be invalidated by a thread that gains the lock and never releases it. \emph{Deadlock freedom} is a liveness requirement that if some thread is attempting to acquire the lock then some thread will eventually succeed in acquiring the lock, unless a thread holds the lock indefinitely. \emph{Starvation freedom} is a liveness requirement that any thread that tries to gain the lock will eventually succeed; by contrast deadlock freedom allows one thread to never obtain the lock as long as others complete an infinite number of critical sections. Other requirements/useful properties of locks will be explored later.
 
-\subsection{External interfaces}
+\subsection{The interface}
 
-The most straightforward interface of a lock can be seen in Figure \ref{code:LockInterface}. This provides a |lock| function for a thread to attempt to gain the lock (blocking if some other thread currently hold the lock) and an |unlock| function for a thread to release the lock. 
+%The most straightforward interface of a lock can be seen in Figure \ref{code:LockInterface}. This provides a |lock| function for a thread to attempt to gain the lock (blocking if some other thread currently hold the lock) and an |unlock| function for a thread to release the lock. 
 
-\begin{figure}[H]
-\begin{scala}
+The most straightforward interface of a lock can be seen in Listing \ref{code:LockInterface}. It provides a |lock| function which allows a thread to attempt to gain the lock (blocking if some other thread currently hold the lock) and an |unlock| function for the holder of the lock to release it. 
+
+\begin{scala}[caption={A Scala interface for a simple lock},label={code:LockInterface}]
   trait Lock{
     /** Acquire the Lock. */
     def lock : Unit
@@ -25,33 +26,41 @@ The most straightforward interface of a lock can be seen in Figure \ref{code:Loc
     ...
   }
 \end{scala}
-\caption{A Scala interface for a simple lock}
-\label{code:LockInterface}
-\end{figure}
 
-When a thread |t| uses a lock |l| with there are four main events of importance to model in CSP:
+%When a thread |t| uses a lock |l| with there are four main events of importance to model in CSP:
+
+%There are four main events of interest to model when a thread interacts with a lock over these two functions: %revisit wording
+
+There are four main actions a thread can take that we will need to consider when we model the locks:
 
 \begin{itemize}
-  \item |callLock.l.t| : The thread calls the lock function;
-  \item |lockAcquired.l.t| : The thread exits the lock function, now holding the lock;
-  \item |lockReleased.l.t| : The thread has called the unlock function and the unlock function has been executed to the point where a thread can now reobtain the lock
-  \item |end.t| : The thread will make no further calls to the lock; this can be used to indicate that the thread has terminated, been permanently descheduled
+  \item A thread calling the |lock| function.
+  \item A thread acquiring the lock; this is the linearization point of the |lock()| fucntion.
+  \item A thread releasing the lock; this is the linearization point of the |unlock()| fucntion.
+  \item A thread terminating or reaching a state where it will make no further attempts to acquire the lock.
 \end{itemize}
 
-Throughout the paper, we will use |callX| to represent a thread calling function |X| and |end.t| to represent a thread terminating. The set of all threads is |ThreadID :: T.{0 .. NTHREADS - 1}|. We will now specify some ideal properties of locks using these channels:
+These events can be modelled via events on the CSP channels \newline |callLock, lockAcquired, lockReleased : LockID . ThreadID| and |end : ThreadID| respectively. We assign each thread an identity of the datatype |ThreadID = T.{0 .. NTHREADS - 1}| and each lock is given an identity of the datatype |LockID = L.{0..NLOCKS-1}|.
+
+Throughout the paper, we will use the convention of |callX| to represent a thread calling function |X| and |end.t| to represent a thread that will no longer perform any operations on the corresponding synchronisation object 
+
+\subsection{Properties of locks}\label{section:lock-properties}
+
+We now specify some ideal properties of locks using the aforementioned channels.
 
 \subsubsection{Mutual exclusion}\label{mutual-exclusion}
-Mutual exclusion is a safety property which states that at most one thread can hold the lock at any point; i.e.~that once thread A acquires the lock, no other thread can obtain the lock until thread A unlocks. We can therefore deduce that a lock |l| with model |X| satisfies the trace refinement:  
+Mutual exclusion is a safety property which states that at most one thread can hold the lock at any points. Mutual exclusion is specified by the following trace refinement which specifies that the thread holding the lock must release the lock before some other thread can acquire it.
 
 %This specifies that at most one thread may be in its critical section at any one time; i.e.~that once thread A obtains the lock, no other thread can obtain the lock until thread A unlocks. We can therefore deduce that a lock |l| with model |X| satisfies the trace refinement:  
   
   \begin{cspm}
     Mutex = lockAcquired.l?t -> lockReleased.l.t -> Mutex
-    assert Mutex [T= X \ (£$\Sigma$£ - [|lockAcquired.l, lockReleased.l|])
+    assert Mutex [T= 
+              X \ (£$\Sigma$£ - [|lockAcquired.l, lockReleased.l|])
   \end{cspm}
 
 \subsubsection{Deadlock-freedom}\label{deadlock-freedom}
-This specifies that if some thread attempts to acquire the lock then a thread will succeed in acquiring the lock\cite{TAoMP}. 
+This is a liveness property which specifies that if a thread attempts to acquire the lock then some thread will succeed in acquiring the lock \cite{TAoMP}. 
 
 %This does allow a CSP deadlock \framebox{Need to explain earlier} if no thread is attempting to acquire the lock, but only if the following holds: \framebox{format this}
   
@@ -59,111 +68,119 @@ This specifies that if some thread attempts to acquire the lock then a thread wi
   
   % This can be captured by the following failures refinement on lock |l| with the set of all threads called |ThreadID|. This process can non-deterministically deadlock when no threads are attempting to obtain the lock and otherwise ensures that if a thread attempts to acquire the lock then some thread obtains the lock
 
-  We can express this in the stable-failures model by ensuring that |lockAcquired.l| is always available to be communicated when some thread has called the lock but not yet obtained it.
+  We can capture this in the stable-failures model by ensuring that |lockAcquired.l| is always available to be communicated when some thread has called the lock but not yet obtained it. %revisit:wording
 
   \begin{cspm}
-    AcquireLock(l, ts) = 
-         callLock.l?t:(diff(ThreadID, ts)) -> AcquireLock(l, union(ts, {t}))
-      [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}))
+AcquireLock :: (LockID, {ThreadID}, {ThreadID}) -> Proc
+AcquireLock(l, ts, TS) = 
+     end?t:(diff(TS, ts)) -> AcquireLock(l, ts, diff(TS, {t})) 
+  [] callLock.l?t:(diff(TS, ts)) -> AcquireLock(l, union(ts, {t}), TS)
+  [] lockAcquired.l?t:ts -> AcquireLock(l, diff(ts, {t}), TS)
 
-    assert AcquireLock(l, {}) [F= 
-        X \ (£$\Sigma$£ - {|callLock.l, lockAcquired.l|})
+assert AcquireLock(l, {}, ThreadID) [F= 
+          X \ (£$\Sigma$£ - {|callLock.l, lockAcquired.l, end|})
   \end{cspm}
-  |AcquireLock| takes two parameters: |l| is the identity of the lock and |ts| is the set of threads currently which have communicated a |callLock| but haven't yet acquired the lock. In our refinement check, we will assume that no lock events have occurred prior; ie. no threads have already attempted to acquire the lock. %\framebox{Explain lack of end}
-  %|AcquireLock| takes three parameters: |l| is the identity of the lock, |ts| is the set of threads currently which have communicated a |callLock| but haven't yet acquired the lock. Finally, |TS| is the set of all live threads; this is so that we can accurately restrict the threads that . 
+  % |AcquireLock| takes two parameters: |l| is the identity of the lock and |ts| is the set of threads currently which have communicated a |callLock| but haven't yet acquired the lock. In our refinement check, we will assume that no lock events have occurred prior; ie. no threads have already attempted to acquire the lock. %\framebox{Explain lack of end}
+  |AcquireLock| takes three parameters: |l| is the identity of the lock, |ts| is the set of threads which have communicated a |callLock| but haven't yet acquired the lock. Finally, |TS| is the set of all threads that have not communicated an |end.t|; this is so that we can accurately restrict the specification to block any terminated threads from calling the lock. 
 
-\subsubsection{Livelock-freedom}\label{livelock-freedom}
-%This specifies that the system must make actual progress; i.e.~that threads can't repeat actions indefinitely without making any progress. 
-This requirement specifies that the number of internal actions on a lock must be bounded while no thread holds the lock; i.e.~threads can't indefinitely repeat actions whilst the lock is unheld. This can be captured in the failures-divergences model, using a specification process parametised over lock |l| and a failures-divergences refinement against a system that only has |lockAcquired| and |lockReleased| as visible communications.
+% \subsubsection{Livelock-freedom}\label{livelock-freedom}
+% %This specifies that the system must make actual progress; i.e.~that threads can't repeat actions indefinitely without making any progress. 
+% This requirement specifies that the number of internal actions on a lock must be bounded while no thread holds the lock; i.e.~threads can't indefinitely repeat actions whilst the lock is unheld. We cannot directly capture this in CSP as we are unable to restrict 
+
+% This can be captured in the failures-divergences model, using a specification process parametised over lock |l| and a failures-divergences refinement against a system that only has |lockAcquired| and |lockReleased| as visible communications.
+
+% \begin{cspm}
+% Live(l) =   lockAcquired.l?t -> DIV
+%                   |~| STOP
+
+% assert Live(l) [FD= X \ (£$\Sigma$£ - [|lockAcquired.l, lockReleased.l|])
+% \end{cspm}
+
+% This specification only diverges after the lock has been acquired for the first time; . It also allows no thread to acquire the lock but only if a finite number of internal events have occured. 
+
+% This specification allows the lock to diverge only when it is held by some thread and to be divergence free otherwise. This forces the number of internal actions when the lock is not held to be finite (else it could diverge and the refinement would fail), indicating that no livelock has occured. We allow the specification to non-deterministically |STOP| when the lock is unheld; this models the effective behaviour of the lock after all threads terminate.
+
+\subsubsection{Initial Livelock-Freedom}\label{initial-livelock-freedom}
+
+We also check that the lock can be obtained for the first time in a finite number of internal operations. We do this by hiding the internal events and use the failures-divergences model to assert that a divergence can only occur after some |lockAcquired| event.
 
 \begin{cspm}
-LiveUnlocked(l) =   lockAcquired.l?t -> LiveLocked(l)
+Live(l) =   lockAcquired.l?t -> DIV
                   |~| STOP
-LiveLocked(l) =     lockReleased.l?t -> LiveUnlocked
-                  |~| DIV
 
-assert LiveUnlocked(l) [FD= X \ (£$\Sigma$£ - [|lockAcquired.l, lockReleased.l|])
+assert Live(l) [FD= 
+          X \ (£$\Sigma$£ - [|lockAcquired.l|])
 \end{cspm}
 
-This specification allows the lock to diverge only when it is held by some thread and to be divergence free otherwise. This forces the number of internal actions when the lock is not held to be finite (else it could diverge and the refinement would fail), indicating that no livelock has occured. We allow the specification to non-deterministically |STOP| when the lock is unheld; this models the effective behaviour of the lock after all threads terminate.
+We include the nondeterministic choice to |STOP| to cover the case where all threads terminate via an |end|.
 
+These are three important properties of useful locks; we will consider starvation-freedom later.
 
-These are three almost essential properties of useful locks; we will consider starvation-freedom later.
+%Remove Lock specification???
 
+% \subsection{A simple lock specification} 
 
-\subsection{A simple lock specification} 
+% Listing \ref{code:LockSpec} shows a simple stable-failures specification for a lock which offers mutual exclusion and deadlock-freedom. Here |l| is the identity of the lock and |ts| is the set of threads that can interact with the lock. 
 
-Figure \ref{code:LockSpec} shows a simple trace specification for a lock, where |l| is the identity of the lock and |ts| is the set of threads that can interact with the lock. 
+% %This specification has the required property of mutual exclusion - once a thread has performed a |lockAcquired.l.t|, no other threads can acquire the lock until after the lock has been released. It also satisfies deadlock-freedom since it can always communicate a |callLock| unless either |ts == TS| (in which case some thread can communicate a |lockAcquired| then |lockReleased|) or |TS = {}| (where all threads have 'terminated' via |exit| and hence is deadlock-free since no threads will attempt to obtain the lock). Livelock-freeness is also satisfied as all actions performed make progress towards obtaining the lock or releasing the lock once it is held. 
 
-%This specification has the required property of mutual exclusion - once a thread has performed a |lockAcquired.l.t|, no other threads can acquire the lock until after the lock has been released. It also satisfies deadlock-freedom since it can always communicate a |callLock| unless either |ts == TS| (in which case some thread can communicate a |lockAcquired| then |lockReleased|) or |TS = {}| (where all threads have 'terminated' via |exit| and hence is deadlock-free since no threads will attempt to obtain the lock). Livelock-freeness is also satisfied as all actions performed make progress towards obtaining the lock or releasing the lock once it is held. 
+% \begin{cspm}[caption={A non-starvation-free trace specification for a lock}, label={code:LockSpec}]
+% SpecLock(l) = lockAcquired.l?t -> lockReleased.l.t -> SpecLock(l)
+% SpecThread(l, t) =    
+%      callLock.l.t -> lockAcquired.l.t -> lockReleased.l.t -> SpecThread(l, t)
+%   [] end.t -> STOP
 
-\begin{figure}
-\begin{cspm}
-LockSpec(l, ts) = SpecLock(l) [|{|lockAcquired.l, lockReleased.l|}|]
-                      (||| t <- ThreadID @ SpecThread(l, t))
-SpecThread(l, t) =    
-     callLock.l.t -> lockAcquired.l.t -> lockReleased.l.t -> SpecThread(l, t)
-  [] end.t -> STOP
-SpecLock(l) = lockAcquired.l?t -> lockReleased.l.t -> SpecLock(l)
-\end{cspm}
-\caption{A non-starvation-free trace specification for a lock}
-\label{code:LockSpec}
-\end{figure}
+% LockSpec(l, ts) = SpecLock(l) [|{|lockAcquired.l, lockReleased.l|}|]
+%                       (||| t <- ThreadID @ SpecThread(l, t))
+% \end{cspm}
 
-This specification has the properties of mutual exclusion, livelock-freedom and deadlock-freedom; we have verified this by running the three assertions from \ref{mutual-exclusion}, \ref{deadlock-freedom} and \ref{livelock-freedom}. As a result, any process which failures-refines this specification also has these three properties. \framebox{explanation of why?}
+% This specification has the properties of mutual exclusion, deadlock-freedom and initial livelock-freedom; we have verified this by running the three assertions from \ref{mutual-exclusion}, \ref{deadlock-freedom} and \ref{initial-livelock-freedom}. We therefore have that any process which refines under stable-failures this specification is also also fulfils the properties of mutual exclusion and deadlock-freedom. Since the specification does not diverge, we cannot use this specification to check by assertion that a lock does not diverge before it is first held; the following locks can each diverge after first being held whereas this specification cannot. %revisit CHECK
 
 \subsection{Test-and-Set lock}
 
-The Test-and-Set (TAS) lock implementation is based on using an |AtomicBoolean| called |state| to capture whether the lock is currently held, with |true| indicating that some thread holds the lock and |false| otherwise. The |AtomicBoolean|, has atomic |get| and |set| operations to read and write values respectively. It also has a |getAndSet| operation which atomically sets the value of the Boolean and returns the old value. The Scala code can be seen in Listing \ref{fig:TASScala}. |state| being false is equivalent to the lock being unlocked; a communication of |getAndSet(true)| with previous value |false| indicates that that thread has now obtained the lock. % that no thread previously held the lock; the thread can then release the lock by setting the value back to |false|.%When a thread attempts to obtain the lock, it performs a |state.getAndSet(true)|; a |getAndSet(true)| that returns |false| can be treated as having gained the lock, whereas a |true| indicates that some other thread already holds the lock. To release the lock a |set(false)| is done to mark the lock as available to other threads.
+The Test-and-Set (TAS) lock implementation (from \cite{CADS}) can be seen in Listing \ref{fig:TASScala}. Internally, it uses an |AtomicBoolean| variable |state| to capture whether the lock is currently held, with |true| indicating that some thread holds the lock and |false| otherwise. The |AtomicBoolean|, has atomic |get| and |set| operations to read and write values respectively. It also has a |getAndSet| operation which atomically sets the value of the Boolean and returns the old value. A thread can obtain the lock via a |getAndSet(true)| where |state| was previously |false|; this is the linearization point of the |lock()| function. % that no thread previously held the lock; the thread can then release the lock by setting the value back to |false|.%When a thread attempts to obtain the lock, it performs a |state.getAndSet(true)|; a |getAndSet(true)| that returns |false| can be treated as having gained the lock, whereas a |true| indicates that some other thread already holds the lock. To release the lock a |set(false)| is done to mark the lock as available to other threads.
 
-\begin{figure}
-  \begin{scala}
-  import java.util.concurrent.atomic.AtomicBoolean
 
-  /** A lock based upon the test-and-set operation 
-    * Based on Herlihy & Shavit, Chapter 7. */
-  class TASLock extends Lock{
-    /** The state of the lock: true represents locked */
-    private val state = new AtomicBoolean(false)
+  \begin{scala}[caption={Test-and-set lock from \cite{CADS}}, label={fig:TASScala}]
+import java.util.concurrent.atomic.AtomicBoolean
 
-    /** Acquire the Lock */ 
-    def lock = while(state.getAndSet(true)){ }
+/** A lock based upon the test-and-set operation 
+  * Based on Herlihy & Shavit, Chapter 7. */
+class TASLock extends Lock{
+  /** The state of the lock: true represents locked */
+  private val state = new AtomicBoolean(false)
 
-    /** Release the Lock */
-    def unlock = state.set(false)
-  }
+  /** Acquire the Lock */ 
+  def lock = while(state.getAndSet(true)){ }
+
+  /** Release the Lock */
+  def unlock = state.set(false)
+}
   \end{scala}
-  \caption{Test-and-set lock from \cite{CADS} \label{fig:TASScala}}
-\end{figure}
 
 \inlineCSP
 
-In order to model the TAS lock, we first need a process that acts as an |AtomicBoolean| to model the |state| variable. Figure \ref{csp:Variable} introduces a process |AtomicVar| than takes an initial value, and channels |get, set : ThreadID.T| and |getAndSet : ThreadID.T.T| for some arbitrary type |T|.
+In order to model the TAS lock, we first need a process that acts as an |AtomicBoolean| to model the |state| variable. Listing \ref{csp:Variable} introduces a process |AtomicVar| than takes an initial value of type |T|, channels |get, set : ThreadID.T| and |getAndSet : ThreadID.T.T| for some arbitrary type |T|.
 
-\begin{figure}
-  \begin{cspm}
+  \begin{cspm}[caption={A process encapsulating an Atomic variable with get, set and getAndSet operations},label={csp:Variable}]
 AtomicVar(value, get, set, gAS) = 
      get?_!value -> AtomicVar(value, get, set, gAS)
   [] set?_?value' -> AtomicVar(value', get, set, gAS)
   [] gAS?_!value?value' -> AtomicVar(value', get, set, gAS) 
   \end{cspm}
-  \caption{A process encapsulating an Atomic variable with get, set and getAndSet operations}
-  \label{csp:Variable}
-\end{figure}
 
-We therefore represent the |state| variable from the Scala implementation by the following CSP:
+We can therefore represent the |state| variable from the Scala implementation by the following CSP:
 \begin{cspm}
   channel get, set: ThreadID . Bool
   channel getAndSet: ThreadID . Bool . Bool
-  State = Var(false, get, set, getAndSet)
+  State = AtomicVar(false, get, set, getAndSet)
   InternalChannels = {|get, set, getAndSet|}
 \end{cspm}
-A communication on any of the channels is equivalent to a thread calling the corresponding operation in Scala. We use |false| to indicate that no thread holds the lock initially.
+A communication on any of these channels is equivalent to a thread calling the corresponding operation in Scala. We use |false| to indicate that no thread holds the lock initially.
 
-We next model the operations of the lock itself. Both operations are trivial to convert, and we can linearize |Lock(t)| when the communication |getAndSet.t.False.True| occurs, indicating that |t| has obtained the lock.
-
+We next model the operations of the lock; both operations are trivial to convert to CSP.
 \begin{cspm}
-  Unlock(t) = setState.t!False -> SKIP -- def unlock = state.set(false)
+  Unlock(t) = setState.t!False -> SKIP 
 
   Lock(t) = getAndSet.t?v!True -> if v == False then SKIP 
                                     else Lock(t)
@@ -172,7 +189,7 @@ We next model the operations of the lock itself. Both operations are trivial to 
 % The |Lock| procedure is also trivial, with the thread just communicating over |getAndSet|. The procedure terminates once the |getAndSet| communicates that the original value of the |state|variable was false; a |getAndSet.t.False.True| event in a trace can be linearized as the point at which the thread |t| obtains the lock.
 
 
-We model the threads that are attempting to obtain the lock by a process |Thread(x)|, where |x| is the identity of the thead. Each thread can non-deterministically chooses to either terminate or obtain the lock, release the lock and repeat. %; we use external choice here so that we can regulate the  behaviour of the threads when analysing the lock's properties. 
+We model the threads that are attempting to obtain the lock by a process |Thread(x)| with thread identity |x|. Each thread can non-deterministically chooses to either terminate or attempt to obtain the lock, release the lock and repeat. %; we use external choice here so that we can regulate the  behaviour of the threads when analysing the lock's properties. 
 Here we use |L.0| as the identity of the lock.
 
 \begin{cspm}
@@ -180,9 +197,9 @@ Here we use |L.0| as the identity of the lock.
               [] end.t -> SKIP
 \end{cspm}
 
-Finally, we construct the lock from its components. We first synchronise all the threads over the |get|, |set| and |getAndSet| channels with the |State| process. Since |getAndSet.t.False.True| and |setState.t.False| are the linearisation points of thread |t| obtaining and releasing the lock, we can rename these communications to |lockAcquired.L.0.t| and |lockReleased.L.0.t| respectively to produce |ActualSystemR|. Finally, to obtain a system that only visibly communicates the four previously identified events, we hide the internal channels of the lock to produce |ActualSystemRExtDiv|.
+Finally, we construct the lock from its components. We first synchronise all the threads over the |get|, |set| and |getAndSet| channels with the |State| process. Since \newline|getAndSet.t.False.True| and |setState.t.False| represent the linearization points of the |lock()| and |Unlock()| operations, we can rename these communications to |lockAcquired.L.0.t| and |lockReleased.L.0.t| respectively to produce |ActualSystemR|. Finally, to obtain a system that only visibly communicates the four previously identified events, we hide the internal channels of the lock to produce |TASLock|. %revisit: diagram?
 
-\framebox{Diagram?}
+%\framebox{Diagram?}
 
 \begin{cspm}
   -- All initially do not hold the lock
@@ -193,49 +210,45 @@ Finally, we construct the lock from its components. We first synchronise all the
   ActualSystemR = ActualSystem 
                     [[getAndSet.t.False.True <- lockAcquired.L.0.t, 
                      £$\!\!\:\:\!\!\:\!\:$£set.t.False            £$\!\!\:\:\!\!\:\!\;$£<- lockReleased.L.0.t  | t <- ThreadID]]
-  ActualSystemRExtDiv = ActualSystemR \ InternalChannels
+  TASLock = ActualSystemR \ InternalChannels
 \end{cspm}
 
 \subsubsection{Analysis}
 
-We firstly examine whether this model fulfils the aforementioned properties. The mutual exclusion, deadlock-freedom and livelock-freedom tests from sections \ref{mutual-exclusion}, \ref{deadlock-freedom} and \ref{livelock-freedom} respectively pass. The model also does not diverge before it is first held or when it is not held; these are all expected results. The TAS lock is also equivalent under traces with the earlier lock specification. However, the model can diverge whenever the lock is held. This occurs when a thread (or threads) attempting to obtain the lock perform an infinite number of |getAndSet| operations. An example trace of this behaviour where |T.0| obtains the lock |l| follows
+We firstly examine whether this model fulfils the aforementioned properties. The mutual exclusion, deadlock-freedom and initial-livelock-freedom tests from section \ref{section:lock-properties} pass as expected. The model can, however, diverge whenever the lock is held. This occurs when a thread (or threads) attempting to obtain the lock perform an infinite number of |getAndSet| operations. An example trace of this behaviour follows
 \begin{cspm}
   £$\langle$£callLock.l.T.0, callLock.l.T.1, getAndSet.T.0.False.True£$\rangle$£^
     £$\langle$£getAndSet.T.1.True.True£$\rangle^\omega$£
 \end{cspm}
   
-This behaviour is expected; thread |T.1| is trying to obtain the lock and is being blocked by |T.0| which holds the lock. This behaviour is, however, problematic for low-level performance. Any |getAndSet| operation causes a broadcast on the shared memory bus between the processors, delaying all processors \cite{TAoMP}. This also forces each thread to invalidate the value of |state| from the caches, regardless of whether the value has actually been changed. Since the above trace never results in thread |T.1| successfully setting |state|, it is preferrable to limit the number of |getAndSet| operations without unneccessarily delaying a thread from obtaining the lock. As a result, we use less costly |get| operations in order to limit the usage of |getAndSet| operations; these |getAndSet| operations are instead limited to situations where they are likely to obtain the lock. Since |get| does not change the underlying value of a variable, the read will result in at most one cache-miss per |set|/|getAndSet| on |state|; this is a marked improvement.%\framebox{Level of detail regarding memory buses, performance, caching etc} 
+This is expected; thread |T.1| is trying to obtain the lock and is being blocked by |T.0| which holds the lock. This behaviour is, however, problematic for low-level performance. Any |getAndSet| operation causes a broadcast on the shared memory bus between the processors, delaying all processors \cite{TAoMP}. This also forces each thread to invalidate the value of |state| from the caches, regardless of whether the value has actually been changed. Since the above trace never results in thread |T.1| successfully setting |state|, it is preferrable to limit the number of |getAndSet| operations without delaying a thread from obtaining the lock. As a result, we use less costly |get| operations in order to reduce the usage of |getAndSet| operations; the |getAndSet| operations are now limited to situations where they are likely to obtain the lock. Since |get| does not change the underlying value of a variable, the read will result in at most one cache-miss per |set|/|getAndSet| on |state|; this is a marked improvement. This change yields the Test-and-Test-and-Set (TTAS) lock.%\framebox{Level of detail regarding memory buses, performance, caching etc} %COUNT
 
 
 \subsection{Test-and-Test-and-Set lock}
 
-\begin{figure}
-  %\begin{Scala}
-  \begin{scala}
-    class TTASLock extends Lock{ 
-      £\dots£
-      /** Acquire the lock */
-      def lock = 
-        do{
-          while(state.get()){ } // spin until state = false
-        } while(state.getAndSet(true)) // if state = true, retry
-      £\dots£
-    }
-  \end{scala}
-  %\end{Scala}
-  \caption{Test-and-test-and-set lock from \cite{CADS}  \label{scala:TTAS}}
-\end{figure}
 
-The Test-and-Test-and-Set (TTAS) lock makes use of this improvement, whilst otherwise remaining similar to the TAS lock. The sole change is to the |lock| function, as can be seen in Figure \ref{scala:TTAS}, which we then specify in our CSP model as the following: 
+\begin{scala}[caption={TTAS lock from \cite{CADS}}, label={scala:TTAS}]
+class TTASLock extends Lock{ 
+  £\dots£
+  /** Acquire the lock */
+  def lock = 
+    do{
+      while(state.get()){ } // spin until state = false
+    } while(state.getAndSet(true)) // if state = true, retry
+  £\dots£
+}
+\end{scala}
+
+The TTAS lock makes use of this improvement, whilst otherwise remaining similar to the TAS lock. The sole change is to the |lock| function, as can be seen in Figure \ref{scala:TTAS}, which we then specify in our CSP model as the following: 
 \begin{cspm}
-  Lock(t) =  getState.t?s -> if s = True then Lock(t)
-                             else gASState.t?v!True -> if v = False then SKIP
-                             else delay!t -> Lock(t)
+Lock(t) =  get.t?s -> if s = True then Lock(t)
+                      else getAndSet.t?v!True -> if v = False then SKIP
+                                                 else delay!t -> Lock(t)
 \end{cspm}
 The TTAS lock can still produce traces with threads performing an unbound number of consecutive operations, however these are now |get| operations instead of |getAndSet| operations. %Whereas the TAS lock can have an unbounded number of |getAndSet| operations for each time the lock is obtained, the 
-The TTAS lock has performs at most one |getAndSet| operation per thread when the lock becomes available. This is the case when each thread's last communication was |get.t.False|, indicating that the lock is available and hence leading to a |getAndSet| communication to attempt to gain the lock.
+The TTAS lock has performs at most one |getAndSet| operation per thread when the lock becomes available. This is the case when the thread's last communication was |get.t.False|, indicating that the lock is available and hence the thread attempts to acquire the lock via a getAndSet.
 
-We now have a linear bound on the number of unsuccessful getAndSet operations, resulting in much more efficient usage of caching and shared memory. This has been verified by synchronising with a regulator process which outputs on an error channel if |n| |getAndSet|s occur in one locking cycle; this regulator acts as a watchdog. Since the trace refinement is satisfied, we have that no |error| event has been communicated and hence at most |n| getAndSets can occur every time the lock is released. 
+We now have a linear bound on the number of unsuccessful getAndSet operations, resulting in much more efficient usage of caching and shared memory. This has been verified by synchronising with a regulator process which outputs on an error channel if |n| |getAndSet|s occur in one locking cycle; this regulator acts as a watchdog. Since the trace refinement is satisfied, we have that no |error| event has been communicated and hence at most |card(ThreadID)| |getAndSet| events can occur every time the lock is released. %low-revisit:put check on left?
 
 \begin{cspm}
 channel error
@@ -251,7 +264,7 @@ assert LockSpec(L.0, {}, ThreadID)
 
 The Peterson lock is a lock implementation for two threads that provides mutual exclusion, deadlock-freedom and starvation-freedom between threads \cite{Peterson}.
 
-\begin{scala}[caption={The PetersonLock code, adapted from \cite{CADS}}]
+\begin{scala}[caption={The Peterson lock code, adapted from \cite{CADS}}]
 import ox.cads.util.ThreadID
 import java.util.concurrent.atomic.AtomicIntegerArray
 
@@ -271,17 +284,17 @@ class PetersonLock extends Lock{
 }
 \end{scala}
 
-We now consider the CSP model of the Peterson Lock. We first introduce |IntArray|; this is similar to the |Var| process earlier but has an index allowing it to store multiple values simultaneously. We also have arguments |l| and |u| which specify the lower and upper bounds of the integers stored by |IntArray|; without this each |Entry| could theoretically store $2^{32}$ values, which results in an infeasibly large state space. We do not include the |getAndSet| operation here as we do not use it in the PetersonLock; it could however be modelled similarly to in |Var|.
+We now construct the CSP model of the Peterson Lock. We first introduce |IntArray|; this is similar to the |AtomicVar| process earlier but has an index allowing it to store multiple values simultaneously. We also have parameters |l| and |u| which specify the lower and upper bounds of the integers stored by |IntArray|; without this each |Entry| could theoretically store $2^{32}$ values, which results in FDR generating an infeasibly large state space. We do not include the |getAndSet| operation here as we do not use it in the Peterson lock; it could however be modelled similarly to |AtomicVar|.
 
 \begin{cspm}
 IntArray(Ind, init, getI, setI, l, u) = 
   let Entry(index, value) = 
             get!index?_!value -> Entry(index, value)
-        [] setI!index?_?value': {l..u} -> Entry(index, value')
+         [] setI!index?_?value': {l..u} -> Entry(index, value')
   within ||| index : Ind @ Entry(index, init)
 \end{cspm}
 
-We also make a couple of changes to the CSP model compared to the direct translation. Firstly, we store all three variables in the |IntArray|; this allows us to use the same |get| and |set| channels throughout without type errors. |victim| is now at index 2. WE also bound the |IntArray| to store values in the range |{0..1}|; as explained above this allows for efficient model checking in FDR. The rest of the model is a fairly natural translation of the Scala code and we model threads as before.
+We also make a couple of changes to the CSP model compared to the direct translation. Firstly, we store all three variables in the |IntArray| with |victim| is at index 2; this allows us to use the same |get| and |set| channels throughout for clarity. We also bound the |IntArray| to store values in the range |{0..1}|. The rest of the model is a fairly natural translation of the Scala code and we model threads as before.
 
 \begin{cspm}[caption={The CSP implementation of the Peterson Lock}]
 channel get, set: Index.ThreadID.{0,1}
@@ -291,20 +304,26 @@ InternalChannels = {|get, set|}
 
 Lock :: (ThreadID) -> Proc
 Lock(T.x) =  set.I.x.T.x.1 -> set.I.2.T.x.x -> WhileLock(T.x)
+
 WhileLock(T.x) = 
-    get.I.1-x.T.x.0 -> SKIP -- Hold lock
-[] get.I.1-x.T.x.1 ->  get.I.2.T.x?y ->
-                          if x == y then WhileLock(T.x) -- Spin
-                          else SKIP -- Hold lock
+     get.I.1-x.T.x.0 -> SKIP -- Hold lock
+   [] get.I.1-x.T.x.1 ->  get.I.2.T.x?y ->
+                         if x == y then WhileLock(T.x) -- Spin
+                         else SKIP -- Hold lock
 
 Unlock :: (ThreadID) -> Proc
 Unlock(T.x) = set.I.x.T.x.0 -> SKIP
 
 Thread(T.x) =     callLock.L.0.T.x -> Lock(T.x); Unlock(T.x); Thread(T.x)
               |~| end.t -> SKIP
+
+PetersonLock = ((AllThreads [|InternalChannels|] Variables)
+                  [[get.I.(1-t).T.t.0 <- lockAcquired.L.0.T.t,
+                  get.I.2.T.t.(1-t) <- lockAcquired.L.0.T.t,
+                  set.I.t.T.t.0 <- lockReleased.L.0.T.t | t <- {0, 1}]])
 \end{cspm}
 
-We can then interleave the two threads, synchronise with the |IntArray|, rename the lock acquistion and released events, and hide all internal communications. Similarly to before we can show that this lock satisfies the properties of mutual exclusion and deadlock- and livelock-freedom. We now consider showing the propety of starvation-freedom.
+We can then interleave the two threads, synchronise with the |IntArray|, rename the lock acquistion and released events, and hide all internal communications. Similarly to before we use the refinements to show that this lock satisfies the properties of mutual exclusion and deadlock- and initial-livelock-freedom. We now consider showing the propety of starvation-freedom.
 
 % \subsection{Tree lock}
 
@@ -384,7 +403,7 @@ Starvation-freedom is a liveness property that states that, under the assumption
 
 One common approach to checking infinite properties in CSP is to hide some (in this case internal) channels and then check that the model does not diverge. This approach does not work here: consider a starvation-free lock which uses busy waiting (repeatedly testing if the lock is available). We have that hiding the internal communications results in a divergence, however the lock is starvation-free. An example of such a lock is the Peterson lock which we examine in section \ref{section:peterson-lock}.
 
-Roscoe and Gibson-Robinson showed that every infinite traces property that can be captured by CSP refinement can also be captured by a finite-traces refinement check when combined with the satisfaction of a deterministic B{\"u}chi automaton \cite{RoscoeBuchi}. A B{\"u}chi automaton is an automaton that takes infinite inputs and accepts an input if an accepting state is visited infinitely often \framebox{Improve}\cite{RoscoeBuchi}. We can, however, show that no deterministic B{\"u}chi automaton can capture starvation-freedom. 
+Roscoe and Gibson-Robinson showed that every infinite traces property that can be captured by CSP refinement can also be captured by a finite-traces refinement check when combined with the satisfaction of a deterministic B{\"u}chi automaton \cite{RoscoeBuchi}. A B{\"u}chi automaton is an automaton that takes infinite inputs and accepts an input if an accepting state is visited infinitely often \cite{CAFV}. We can, however, show that no deterministic B{\"u}chi automaton can capture starvation-freedom. 
 
 % The automaton should be satisifed by any trace where some thread obtains the lock; this requires that the BA has some accepting state that can be visited an infinite amount of times when some thread |t| holds the lock. Since BA have a finite number of states, that state must be reachable in a finite sequence of steps. As a result, the BA must be satisfied by some thread obtaining the lock, reaching an accepting state in the BA, releasing the lock and repeating that same process. This, however, would accept non-starvation free locks.
 
@@ -413,56 +432,57 @@ Now we consider the TAS lock from before. This is clearly not starvation-free as
 
 % Now we consider the TAS lock from before. This is clearly not starvation free as the first thread to communicate on |getAndSet| once the lock becomes available will acquire it. As a result |T.0| can bypass |T.1| an infinite number of times, hence the TAS lock is not starvation free. We have from the above that there must exist some accepting state in the automaton which is reachable when |T.0| holds the lock and |T.1| is attempting to obtain the lock. Since |T.1| only has one available state when |T.0| holds the lock (communicating a |getAndSet.L.0.T.1.false.false|), we have that this accepting state must be reachable whenever |T.0| bypasses |T.1|. As a result, we have that |T.0| can obtain the lock an infinite number of times, and each of these bypasses can result in a visit to an accepting state of the automaton. We therefore have that the B{\"u}chi automaton accepts this run despite the both the run and the TAS lock not being starvation-free. This is a contradiction and hence we have that no such deterministic automaton can exist.
 
-\framebox{Improve}We hence have that no deterministic B{\"u}chi automaton can accurately capture starvation-freedom and hence we cannot test directly for starvation-freedom through a standard FDR refinement check.
+\framebox{Improve}We hence have that no deterministic B{\"u}chi automaton can capture starvation-freedom and hence we cannot test directly for starvation-freedom through a standard FDR refinement check.
 
 \subsection{First-come-first-served}
 
-We can instead consider capturing the stronger propety of first-come-first-served. Locks that satisfy this property can be split into a \emph{doorway} section of a bounded number of steps and a folowing \emph{waiting} section of a potentially unbounded number of execution steps. This property states that once thread |X| has completed the doorway section of the lock it cannot be overtaken by a thread |Y| that has not yet started its doorway section; i.e.~ |X| will acquire the lock before |Y| acquires the lock. This implies starvation-freedom as once |X| has completed its doorway section, it can only be bypassed by threads who have started their doorway section prior to |X|.
+We can instead consider capturing the stronger property of first-come-first-served. Locks that satisfy this property can be split into a \emph{doorway} section of a bounded number of steps and a folowing \emph{waiting} section of a potentially unbounded number of execution steps. This property states that once thread |X| has completed its doorway section it cannot be overtaken by a thread |Y| that has not yet started its doorway section; i.e.~ |X| must acquire the lock before |Y| acquires the lock. We note that first-come-first-served implies starvation-freedom.
 
-Checking this propety requires manual renaming of some communication(s) to a new channel |doorwayComplete : LockID . ThreadID|. The implementation here requires the user to identify the doorway section manually; an automated doorway detector is left as future work.\framebox{check}
+Checking this propety requires manual renaming of some communication(s) to a new channel |doorwayComplete : LockID . ThreadID|. The implementation here requires the user to identify the doorway section manually; an automated doorway detector is left as future work.
 
-We can capture this through a CSP specification which we define below. This is split into four main processes:
+The CSP specification of first-come-first-served is defined in Listing \ref{CSP:FCFS}. This is split into four main processes:
 \begin{itemize}
-  \item |FCFSNotStarted(l, t, s1, s3)| indicates that thread |t| has not called the lock yet. |t| can either terminate via an |end| or call the lock.
-  \item |FCFSStarted(l, t, s1, s3)| indicates that thread |t| has called the lock and started, but not completed, its doorway section.
-  \item |FCFSCompleted(l, t, s1, s3)| indicates that thread |t| has completed its doorway section and is ready to obtain the lock. When it obtains the lock, it transitions back to |FCFSNotStarted(l, t, s1, s3)|.
+  \item |FCFSNotStarted(l, t, b, bn)| indicates that thread |t| has not called the lock yet. |t| can either terminate via an |end| or call the lock.
+  \item |FCFSStarted(l, t, b, bn)| indicates that thread |t| has called the lock and started, but not completed, its doorway section.
+  \item |FCFSCompleted(l, t, b, bn)| indicates that thread |t| has completed its doorway section and is ready to obtain the lock. When it obtains the lock, it transitions back to |FCFSNotStarted(l, t, b, bn)|.
   \item |FCFSTerminated(l, t)| is used when a thread has terminated. We no longer need to keep track of the actions of the other threads as thread |t| will not obtain the lock again. 
 \end{itemize}
 
-At each point in time |s1| is the set of states that have completed their doorway section before |t| started its doorway section; these threads must acquire the lock before |t| can acquire it under the definition of first-come-first-served. |s3| is used to store the set of threads that completed their doorway section after |t|; once |t| acquires the lock it cannot reacquire the lock until all the threads in |s3| have obtained the lock. This specification only enforces that |t| cannot bypass other threads that came first. When the specification is ran in alphabetised parallel across all threads it ensures that no thread can bypass another thread; this therefore ensures that no thread can be bypassed.
+At each point in time |b| (\emph{b}efore) is the set of states that have completed their doorway section before |t| started its doorway section; these threads must acquire the lock before |t| can acquire it under the definition of first-come-first-served. |bn| (\emph{b}efore \emph{n}ext) is used to store the set of threads that completed their doorway section after |t|; once |t| acquires the lock all threads in |bn| must acquire the lock before |t| can reacquire it. This specification only enforces that |t| cannot bypass other threads that came first. When the specification is ran in alphabetised parallel across all threads it ensures that no thread can bypass another thread; this therefore ensures that no thread can be bypassed.
 
-\begin{cspm}
-  FCFSNotStarted(l, t, s1, s3) = 
+\begin{cspm}[caption={The CSP specification for first-come-first-served}, label={CSP:FCFS}]
+  FCFSNotStarted(l, t, b, bn) = 
      end.t -> FCFSTerminated(l, t)
-  [] callLock.l.t -> FCFSStarted(l, t, s1, s3)
-  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSNotStarted(l, t, union(s1, {t'}), s3)
-  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSNotStarted(l, t, diff(s1, {t'}), s3)
+  [] callLock.l.t -> FCFSStarted(l, t, lineariz, bn)
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(b, bn))) -> FCFSNotStarted(l, t, union(b, {t'}), bn)
+  [] lockAcquired.l?t':diff(union(b, bn), {t}) -> FCFSNotStarted(l, t, diff(b, {t'}), bn)
 
 
-FCFSStarted(l, t, s1, s3) = 
-     doorwayComplete.l.t -> FCFSCompleted(l, t, s1, s3)
-  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSStarted(l, t, s1, union(s3, {t'}))
-  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSStarted(l, t, diff(s1, {t'}), diff(s3, {t'}))
+FCFSStarted(l, t, b, bn) = 
+     doorwayComplete.l.t -> FCFSCompleted(l, t, b, bn)
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(b, bn))) -> FCFSStarted(l, t, b, union(bn, {t'}))
+  [] lockAcquired.l?t':diff(union(b, bn), {t}) -> FCFSStarted(l, t, diff(b, {t'}), diff(bn, {t'}))
 
-FCFSCompleted(l, t, s1, s3) = 
-     empty(s1) & lockAcquired.l.t -> FCFSNotStarted(l, t, s3, {})
-  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(s1, s3))) -> FCFSCompleted(l, t, s1, union(s3, {t'}))
-  [] lockAcquired.l?t':diff(union(s1, s3), {t}) -> FCFSCompleted(l, t, diff(s1, {t'}), diff(s3, {t'}))
+FCFSCompleted(l, t, b, bn) = 
+     empty(b) & lockAcquired.l.t -> FCFSNotStarted(l, t, bn, {})
+  [] doorwayComplete.l?t':diff(ThreadID, union({t}, union(b, bn))) -> FCFSCompleted(l, t, b, union(bn, {t'}))
+  [] lockAcquired.l?t':diff(union(b, bn), {t}) -> FCFSCompleted(l, t, diff(b, {t'}), diff(bn, {t'}))
 
 FCFSTerminated(l, t) = 
      doorwayComplete.l?t':diff(ThreadID, {t}) -> FCFSTerminated(l, t)
   [] lockAcquired.l?t':diff(ThreadID, {t}) -> FCFSTerminated(l, t)
-\end{cspm}
 
-We can now verify this property against the Peterson lock implementaion from section \ref{section:peterson-lock}. We place each of the specification processes in parallel, ellowing each to communicate their respective thread's |callLock| and |end| events and forcing all of the specifications to synchronise on a |doorwayComplete| or |lockAcquired| event on the lock |l|.
-
-\begin{cspm}
 FCFSCheck(l) = 
   || t <- ThreadID @ [union({callLock.l.t, end.t}, {|doorwayComplete.l, lockAcquired.l|})]
         FCFSNotStarted(l, t, {}, {})
+\end{cspm}
 
+We can now verify the Peterson lock implementaion from section \ref{section:peterson-lock} against this property.
+
+\begin{cspm}
 PetersonLockDoorway = 
-  ActualSystemR [[set.I.2.T.0.x <- doorwayComplete.L.0.T.x | x <- {0, 1}]] \ InternalChannels
+  (PetersonLock 
+    [[set.I.2.T.0.x <- doorwayComplete.L.0.T.x | x <- {0, 1}]]) \ InternalChannels
 
 assert FCFSCheck(L.0) [F= PetersonLockDoorway \ {|lockReleased|}
 \end{cspm}

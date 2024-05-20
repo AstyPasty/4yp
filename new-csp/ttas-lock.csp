@@ -110,6 +110,8 @@ Reg(n) =    gASState?_ -> if (n < card(ThreadID)) then Reg(n+1)
 
 assert LockSpec(L.0, ThreadID) [T= ActualSystemR [|{|gASState, lockReleased|}|] Reg(0)
 
+assert Reg(0) [F= ActualSystemR \ diff(union(LockEndEvents, {|getState, setState|}), {|lockReleased|})
+
 
 Live(l) = lockAcquired.l?t -> Live1(l)
         |~| STOP
@@ -117,3 +119,5 @@ Live1(l) = lockReleased.l?t -> Live(l)
         |~| DIV
 
 assert Live(L.0) [FD= ActualSystemR \ {|end|}
+
+
